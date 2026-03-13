@@ -26,6 +26,10 @@ provider := anthropic.New("sk-ant-...")  // or gemini, deepseek, groq, ...
 - **11 providers** — OpenAI, Anthropic, Gemini, DeepSeek, Groq, Fireworks, xAI, OpenRouter, Together, Mistral, Cohere
 - **Streaming** — Channel-based, idiomatic Go
 - **Tool calling** — Unified interface across all providers
+- **Tool loop** — Automatic LLM → tool → LLM execution cycle
+- **Chain** — Sequential multi-step prompt pipelines
+- **Graph** — LangGraph-style stateful workflow engine with conditional routing
+- **MCP** — Model Context Protocol client for external tool integration
 - **Structured output** — JSON schema support (OpenAI-compatible providers)
 - **Retry** — Exponential backoff for rate limits and server errors
 - **Fallback** — Automatic failover to backup providers
@@ -175,6 +179,129 @@ openai.New("key", openai.WithHTTPClient(&http.Client{Timeout: 10 * time.Second})
 openrouter.New("key", openrouter.WithSiteInfo("https://myapp.com", "My App"))
 ```
 
+## Tool Loop
+
+Automatic LLM → tool → LLM cycle:
+
+```go
+import "github.com/promptrails/unillm/tools"
+
+executor := tools.NewMap(map[string]tools.Func{
+    "get_weather": func(ctx context.Context, args string) (string, error) {
+        // Parse args, call API, return result
+        return `{"temp": 22, "condition": "sunny"}`, nil
+    },
+})
+
+result, err := tools.RunLoop(ctx, provider, &unillm.CompletionRequest{
+    Model: "gpt-4o",
+    Messages: []unillm.Message{{Role: "user", Content: "Weather in Istanbul?"}},
+    Tools: toolDefs,
+}, executor)
+
+fmt.Println(result.Response.Content)  // "It's 22°C and sunny in Istanbul."
+fmt.Println(result.Iterations)        // 2 (initial + after tool result)
+```
+
+## Chain
+
+Sequential prompt chain — output of each step feeds into the next:
+
+```go
+import "github.com/promptrails/unillm/chain"
+
+c := chain.New(provider, []chain.Step{
+    {SystemPrompt: "Summarize the following text in 2 sentences."},
+    {SystemPrompt: "Translate the following to Turkish."},
+}, chain.WithModel("gpt-4o"))
+
+result, err := c.Run(ctx, "Long article text here...")
+fmt.Println(result.Output) // Turkish summary
+```
+
+Steps support per-step providers, models, transforms, and input templates:
+
+```go
+chain.Step{
+    SystemPrompt:  "Analyze sentiment",
+    Provider:      anthropic.New("sk-ant-..."),  // different provider for this step
+    Model:         "claude-sonnet-4-20250514",
+    InputTemplate: "Analyze the sentiment of:\n\n{input}",
+    Transform:     func(s string) string { return strings.TrimSpace(s) },
+}
+```
+
+## Graph (LangGraph-style)
+
+Stateful workflow with conditional routing:
+
+```go
+import "github.com/promptrails/unillm/graph"
+
+type State struct {
+    Input     string
+    Sentiment string
+    Output    string
+}
+
+g := graph.New[State]()
+
+g.AddNode("classify", func(ctx context.Context, s State) (State, error) {
+    // Call LLM to classify sentiment
+    resp, _ := provider.Complete(ctx, &unillm.CompletionRequest{...})
+    s.Sentiment = resp.Content
+    return s, nil
+})
+
+g.AddNode("positive", func(ctx context.Context, s State) (State, error) {
+    s.Output = "Thank you for the positive feedback!"
+    return s, nil
+})
+
+g.AddNode("negative", func(ctx context.Context, s State) (State, error) {
+    s.Output = "We're sorry to hear that. How can we help?"
+    return s, nil
+})
+
+g.SetEntryPoint("classify")
+g.AddConditionalEdge("classify", func(s State) string {
+    if s.Sentiment == "positive" { return "positive" }
+    return "negative"
+})
+g.AddEdge("positive", graph.END)
+g.AddEdge("negative", graph.END)
+
+result, _ := g.Run(ctx, State{Input: "I love this product!"})
+fmt.Println(result.State.Output)
+```
+
+## MCP (Model Context Protocol)
+
+Connect to MCP servers and use their tools:
+
+```go
+import (
+    "github.com/promptrails/unillm/mcp"
+    "github.com/promptrails/unillm/tools"
+)
+
+// Connect to MCP server
+client, _ := mcp.NewClient("http://localhost:8080/mcp",
+    mcp.WithBearerToken("token"),
+)
+defer client.Close()
+
+// Get tool definitions for the LLM
+toolDefs := client.ToolDefinitions()
+
+// Use MCP tools in the tool loop (client implements tools.Executor)
+result, _ := tools.RunLoop(ctx, provider, &unillm.CompletionRequest{
+    Model:    "gpt-4o",
+    Messages: []unillm.Message{{Role: "user", Content: "Search for Go tutorials"}},
+    Tools:    toolDefs,
+}, client)
+```
+
 ## Architecture
 
 ```
@@ -186,6 +313,10 @@ unillm/
 ├── retry.go        # RetryProvider decorator
 ├── fallback.go     # FallbackProvider decorator
 ├── compat/         # Shared OpenAI-compatible logic
+├── tools/          # Tool loop execution
+├── chain/          # Sequential prompt chains
+├── graph/          # LangGraph-style workflow engine
+├── mcp/            # MCP client
 ├── openai/         # OpenAI
 ├── anthropic/      # Anthropic (Claude)
 ├── gemini/         # Google Gemini
