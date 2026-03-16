@@ -5,14 +5,20 @@ import "encoding/json"
 // Request types
 
 type request struct {
-	Model       string    `json:"model"`
-	Messages    []message `json:"messages"`
-	System      string    `json:"system,omitempty"`
-	MaxTokens   int       `json:"max_tokens"`
-	Temperature *float64  `json:"temperature,omitempty"`
-	TopP        *float64  `json:"top_p,omitempty"`
-	Stream      bool      `json:"stream"`
-	Tools       []tool    `json:"tools,omitempty"`
+	Model       string      `json:"model"`
+	Messages    []message   `json:"messages"`
+	System      string      `json:"system,omitempty"`
+	MaxTokens   int         `json:"max_tokens"`
+	Temperature *float64    `json:"temperature,omitempty"`
+	TopP        *float64    `json:"top_p,omitempty"`
+	Stream      bool        `json:"stream"`
+	Tools       []tool      `json:"tools,omitempty"`
+	ToolChoice  *toolChoice `json:"tool_choice,omitempty"`
+}
+
+type toolChoice struct {
+	Type string `json:"type"`
+	Name string `json:"name,omitempty"`
 }
 
 type message struct {

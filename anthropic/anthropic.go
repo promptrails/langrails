@@ -259,6 +259,16 @@ func (p *Provider) buildRequestBody(req *unillm.CompletionRequest, stream bool) 
 		r.Tools = convertTools(req.Tools)
 	}
 
+	// Structured output: define schema as a tool and force the model to use it
+	if req.OutputSchema != nil {
+		r.Tools = append(r.Tools, tool{
+			Name:        "structured_output",
+			Description: "Return the response in the specified JSON schema.",
+			InputSchema: json.RawMessage(*req.OutputSchema),
+		})
+		r.ToolChoice = &toolChoice{Type: "tool", Name: "structured_output"}
+	}
+
 	return json.Marshal(r)
 }
 
@@ -279,6 +289,11 @@ func (p *Provider) parseResponse(resp *response) *unillm.CompletionResponse {
 			result.Content += block.Text
 		case "tool_use":
 			args, _ := json.Marshal(block.Input)
+			// If this is our structured_output tool, return as content
+			if block.Name == "structured_output" {
+				result.Content = string(args)
+				continue
+			}
 			result.ToolCalls = append(result.ToolCalls, unillm.ToolCall{
 				ID:        block.ID,
 				Name:      block.Name,

@@ -33,9 +33,11 @@ type functionResponse struct {
 }
 
 type generationConfig struct {
-	Temperature *float64 `json:"temperature,omitempty"`
-	MaxTokens   *int     `json:"maxOutputTokens,omitempty"`
-	TopP        *float64 `json:"topP,omitempty"`
+	Temperature      *float64         `json:"temperature,omitempty"`
+	MaxTokens        *int             `json:"maxOutputTokens,omitempty"`
+	TopP             *float64         `json:"topP,omitempty"`
+	ResponseMIMEType string           `json:"responseMimeType,omitempty"`
+	ResponseSchema   *json.RawMessage `json:"responseSchema,omitempty"`
 }
 
 type toolDeclaration struct {

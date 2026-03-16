@@ -238,12 +238,22 @@ func (p *Provider) buildRequestBody(req *unillm.CompletionRequest) ([]byte, erro
 		}
 	}
 
-	if req.Temperature != nil || req.MaxTokens != nil || req.TopP != nil {
+	if req.Temperature != nil || req.MaxTokens != nil || req.TopP != nil || req.OutputSchema != nil {
 		r.GenerationConfig = &generationConfig{
 			Temperature: req.Temperature,
 			MaxTokens:   req.MaxTokens,
 			TopP:        req.TopP,
 		}
+	}
+
+	// Structured output via responseSchema
+	if req.OutputSchema != nil {
+		if r.GenerationConfig == nil {
+			r.GenerationConfig = &generationConfig{}
+		}
+		schema := json.RawMessage(*req.OutputSchema)
+		r.GenerationConfig.ResponseMIMEType = "application/json"
+		r.GenerationConfig.ResponseSchema = &schema
 	}
 
 	if len(req.Tools) > 0 {
