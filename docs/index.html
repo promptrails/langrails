@@ -5,16 +5,401 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>llmrails — Unified LLM Provider for Go</title>
   <meta name="description" content="One API, 11 providers. Unified LLM interface for Go with streaming, tool calling, chains, graphs, and MCP support." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify-themeable@0/dist/css/theme-simple.css" />
   <style>
+    /* === Station Design System === */
     :root {
-      --theme-color: #2563eb;
-      --sidebar-width: 260px;
-      --sidebar-nav-link-color--active: #2563eb;
-      --sidebar-name-font-weight: 700;
+      /* Colors (OKLCH) */
+      --theme-color: oklch(0.49 0.13 247);
+      --theme-color-rgb: 37, 99, 235;
+      --primary: oklch(0.49 0.13 247);
+      --primary-hover: oklch(0.44 0.14 247);
+      --primary-10: oklch(0.49 0.13 247 / 0.1);
+      --primary-20: oklch(0.49 0.13 247 / 0.2);
+
+      /* Surfaces */
+      --base-background-color: oklch(0.985 0.004 240);
+      --bg-secondary: oklch(0.97 0.005 245);
+      --card-bg: oklch(0.985 0.004 240 / 0.8);
+      --border-color: oklch(0.9 0.008 248);
+
+      /* Text */
+      --base-color: oklch(0.19 0.012 248);
+      --text-secondary: oklch(0.55 0.015 248);
+
+      /* Code */
+      --code-bg: oklch(0.16 0.014 248);
+      --code-text: oklch(0.9 0.005 248);
+
+      /* Docsify overrides */
+      --sidebar-width: 272px;
+      --sidebar-background: oklch(0.975 0.004 240 / 0.85);
+      --sidebar-border-color: oklch(0.9 0.008 248);
+      --sidebar-border-width: 1px;
+      --sidebar-nav-link-color: oklch(0.45 0.01 248);
+      --sidebar-nav-link-color--active: oklch(0.49 0.13 247);
+      --sidebar-nav-link-font-weight--active: 600;
+      --sidebar-nav-link-border-color--active: oklch(0.49 0.13 247);
+      --sidebar-nav-link-border-width--active: 2px;
+      --sidebar-name-font-weight: 800;
+      --sidebar-name-color: oklch(0.19 0.012 248);
+      --sidebar-name-font-size: 17px;
+      --sidebar-nav-strong-color: oklch(0.35 0.01 248);
+
+      /* Content */
+      --content-max-width: 860px;
+      --heading-color: oklch(0.19 0.012 248);
+      --heading-h1-font-weight: 800;
+      --heading-h2-font-weight: 700;
+      --heading-h1-font-size: 2rem;
+      --heading-h2-font-size: 1.5rem;
+
+      /* Search */
+      --search-input-border-color: oklch(0.9 0.008 248);
+      --search-input-background-color: oklch(0.985 0.004 240);
+      --search-input-color: oklch(0.19 0.012 248);
+
+      /* Cover */
+      --cover-background-color: oklch(0.985 0.004 240);
+
+      /* Misc */
+      --link-color: oklch(0.49 0.13 247);
+      --link-color--hover: oklch(0.44 0.14 247);
+      --blockquote-border-color: oklch(0.49 0.13 247);
+
+      /* Radius */
+      --radius: 0.625rem;
     }
-    .markdown-section code {
-      border-radius: 4px;
+
+    /* Dark mode via data attribute */
+    [data-theme="dark"] {
+      --primary: oklch(0.69 0.14 246);
+      --primary-hover: oklch(0.63 0.15 246);
+      --primary-10: oklch(0.69 0.14 246 / 0.1);
+      --primary-20: oklch(0.69 0.14 246 / 0.2);
+      --theme-color: oklch(0.69 0.14 246);
+
+      --base-background-color: oklch(0.135 0.015 248);
+      --bg-secondary: oklch(0.17 0.016 248);
+      --card-bg: oklch(0.17 0.016 248 / 0.8);
+      --border-color: oklch(0.28 0.018 248);
+      --base-color: oklch(0.94 0.005 248);
+      --text-secondary: oklch(0.6 0.012 248);
+      --code-bg: oklch(0.1 0.012 248);
+
+      --sidebar-background: oklch(0.15 0.015 248 / 0.9);
+      --sidebar-border-color: oklch(0.28 0.018 248);
+      --sidebar-nav-link-color: oklch(0.6 0.012 248);
+      --sidebar-nav-link-color--active: oklch(0.69 0.14 246);
+      --sidebar-nav-link-border-color--active: oklch(0.69 0.14 246);
+      --sidebar-name-color: oklch(0.94 0.005 248);
+      --sidebar-nav-strong-color: oklch(0.75 0.005 248);
+
+      --heading-color: oklch(0.94 0.005 248);
+      --search-input-border-color: oklch(0.28 0.018 248);
+      --search-input-background-color: oklch(0.17 0.016 248);
+      --search-input-color: oklch(0.94 0.005 248);
+      --cover-background-color: oklch(0.135 0.015 248);
+      --link-color: oklch(0.69 0.14 246);
+      --link-color--hover: oklch(0.63 0.15 246);
+      --blockquote-border-color: oklch(0.69 0.14 246);
+    }
+
+    /* === Typography === */
+    body, .sidebar, .markdown-section, .search input {
+      font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif !important;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    code, pre, .token, .markdown-section code,
+    .sidebar .search input {
+      font-family: 'Geist Mono', 'SF Mono', monospace !important;
+    }
+
+    /* === Background === */
+    body {
+      background-image:
+        radial-gradient(circle at top, oklch(0.94 0.014 240 / 0.85), transparent 38%),
+        radial-gradient(circle at 85% 10%, oklch(0.95 0.018 200 / 0.65), transparent 24%);
+    }
+
+    [data-theme="dark"] body,
+    [data-theme="dark"] {
+      background-image:
+        radial-gradient(circle at top, oklch(0.2 0.025 248 / 0.9), transparent 38%),
+        radial-gradient(circle at 85% 10%, oklch(0.22 0.03 210 / 0.6), transparent 24%);
+    }
+
+    /* Grid overlay */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      background-image:
+        linear-gradient(var(--border-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
+      background-size: 72px 72px;
+      opacity: 0.18;
+      pointer-events: none;
+    }
+
+    /* === Sidebar === */
+    .sidebar {
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-right: 1px solid var(--border-color) !important;
+    }
+
+    .sidebar-nav li a {
+      letter-spacing: -0.01em;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .sidebar .app-name-link {
+      letter-spacing: -0.03em;
+    }
+
+    .sidebar .search .input-wrap {
+      position: relative;
+    }
+
+    .sidebar .search .input-wrap input {
+      border-radius: var(--radius) !important;
+      border: 1px solid var(--border-color) !important;
+      padding: 10px 14px 10px 36px !important;
+      font-size: 13px !important;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      width: 100% !important;
+      box-sizing: border-box !important;
+      background: var(--search-input-background-color) !important;
+      color: var(--search-input-color) !important;
+    }
+
+    .sidebar .search .input-wrap input:focus {
+      border-color: var(--primary) !important;
+      box-shadow: 0 0 0 3px var(--primary-10) !important;
+    }
+
+    /* Fix search icon positioning */
+    .sidebar .search .input-wrap::after {
+      content: '';
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      background: var(--text-secondary);
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") no-repeat center;
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") no-repeat center;
+      pointer-events: none;
+    }
+
+    /* Hide docsify's default search icon */
+    .sidebar .search .clear-button {
+      right: 10px !important;
+    }
+
+    /* === Headings === */
+    .markdown-section h1,
+    .markdown-section h2,
+    .markdown-section h3 {
+      letter-spacing: -0.03em;
+    }
+
+    .markdown-section h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      margin-top: 0;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .markdown-section h2 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-top: 2.5rem;
+    }
+
+    .markdown-section h3 {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    /* === Code blocks === */
+    .markdown-section pre {
+      background: var(--code-bg) !important;
+      border-radius: 12px !important;
+      border: 1px solid var(--border-color);
+      padding: 0 !important;
+      overflow: hidden;
+    }
+
+    .markdown-section pre > code {
+      background: none !important;
+      padding: 20px !important;
+      display: block;
+      font-size: 13px !important;
+      line-height: 1.7 !important;
+      color: var(--code-text) !important;
+    }
+
+    /* Inline code */
+    .markdown-section p code,
+    .markdown-section li code,
+    .markdown-section td code {
+      background: var(--primary-10) !important;
+      color: var(--primary) !important;
+      padding: 2px 7px !important;
+      border-radius: 6px !important;
+      font-size: 0.85em !important;
+      border: none !important;
+    }
+
+    /* === Tables === */
+    .markdown-section table {
+      border-collapse: separate !important;
+      border-spacing: 0 !important;
+      border: 1px solid var(--border-color) !important;
+      border-radius: 12px !important;
+      overflow: hidden !important;
+      width: 100%;
+      background: var(--base-background-color) !important;
+    }
+
+    .markdown-section th {
+      background: var(--bg-secondary) !important;
+      font-weight: 700 !important;
+      font-size: 13px !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.04em !important;
+      color: var(--text-secondary) !important;
+      padding: 12px 16px !important;
+    }
+
+    .markdown-section td {
+      padding: 12px 16px !important;
+      border-bottom: 1px solid var(--border-color) !important;
+      font-size: 14px !important;
+      background: transparent !important;
+      color: var(--base-color) !important;
+    }
+
+    .markdown-section tr:last-child td {
+      border-bottom: none !important;
+    }
+
+    /* === Blockquotes === */
+    .markdown-section blockquote {
+      border-left: 3px solid var(--primary) !important;
+      background: var(--primary-10) !important;
+      padding: 14px 20px !important;
+      border-radius: 0 var(--radius) var(--radius) 0 !important;
+      margin: 1.5em 0 !important;
+    }
+
+    .markdown-section blockquote p {
+      color: var(--base-color) !important;
+      font-weight: 500;
+    }
+
+    /* === Links === */
+    .markdown-section a {
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .markdown-section a:hover {
+      text-decoration: underline;
+    }
+
+    /* === Prism syntax highlighting — Station colors === */
+    .token.keyword { color: oklch(0.75 0.15 305) !important; }
+    .token.string { color: oklch(0.75 0.15 155) !important; }
+    .token.comment { color: oklch(0.5 0.01 248) !important; }
+    .token.function { color: oklch(0.78 0.1 230) !important; }
+    .token.number { color: oklch(0.75 0.12 60) !important; }
+    .token.operator { color: oklch(0.7 0.08 200) !important; }
+    .token.punctuation { color: oklch(0.6 0.01 248) !important; }
+    .token.builtin { color: oklch(0.72 0.12 190) !important; }
+    .token.class-name { color: oklch(0.78 0.1 230) !important; }
+    .token.boolean { color: oklch(0.75 0.12 60) !important; }
+
+    /* === Misc === */
+    .github-corner svg {
+      fill: var(--primary) !important;
+    }
+
+    /* Search results */
+    .search .results-panel {
+      border-radius: var(--radius);
+      border: 1px solid var(--border-color);
+      box-shadow: 0 8px 30px oklch(0 0 0 / 0.08);
+    }
+
+    .search .matching-post {
+      border-bottom-color: var(--border-color) !important;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: oklch(0.7 0.005 248 / 0.3);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: oklch(0.7 0.005 248 / 0.5);
+    }
+
+    /* Theme toggle */
+    .theme-toggle {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      z-index: 100;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      background: var(--card-bg);
+      backdrop-filter: blur(8px);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      color: var(--text-secondary);
+    }
+    .theme-toggle:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+    .theme-toggle svg { width: 18px; height: 18px; }
+    .theme-toggle .icon-sun { display: none; }
+    [data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+    [data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+
+    /* Mobile */
+    @media (max-width: 768px) {
+      .markdown-section {
+        padding: 20px !important;
+      }
+      .theme-toggle {
+        left: auto;
+        right: 20px;
+      }
     }
   </style>
 </head>
@@ -22,7 +407,7 @@
   <div id="app"></div>
   <script>
     window.$docsify = {
-      name: 'llmrails',
+      name: 'LLMRails',
       repo: 'https://github.com/promptrails/llmrails',
       loadSidebar: true,
       subMaxLevel: 3,
@@ -37,6 +422,30 @@
   <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/plugins/search.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-go.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-bash.min.js"></script>
+
+  <!-- Theme toggle button -->
+  <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+    <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+  </button>
+
+  <script>
+    function getPreferredTheme() {
+      const stored = localStorage.getItem('llmrails-theme');
+      if (stored) return stored;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    function setTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('llmrails-theme', theme);
+    }
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme') || 'light';
+      setTheme(current === 'dark' ? 'light' : 'dark');
+    }
+    // Apply on load
+    setTheme(getPreferredTheme());
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-json.min.js"></script>
 </body>
 </html>

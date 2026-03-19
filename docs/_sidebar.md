@@ -3,7 +3,7 @@
 
 - **Core**
   - [Providers](providers.md)
-  - [Parameters & Feature Matrix](parameters.md)
+  - [Parameters](parameters.md)
   - [Streaming](streaming.md)
   - [Structured Output](structured-output.md)
   - [Retry & Fallback](retry-fallback.md)
