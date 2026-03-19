@@ -29,6 +29,7 @@ go get github.com/promptrails/llmrails
 - **Chain** — Sequential multi-step prompt pipelines
 - **Graph** — LangGraph-style stateful workflow engine
 - **MCP** — Model Context Protocol client
+- **A2A** — Agent-to-Agent protocol client + server
 - **Structured output** — JSON schema across all providers
 - **Retry & Fallback** — Composable resilience decorators
 - **Zero dependencies** — Only Go standard library
@@ -45,6 +46,7 @@ go get github.com/promptrails/llmrails
 | [Chain](docs/chain.md) | Sequential prompt pipelines |
 | [Graph](docs/graph.md) | Stateful workflows, conditional routing |
 | [MCP](docs/mcp.md) | Model Context Protocol integration |
+| [A2A](docs/a2a.md) | Agent-to-Agent protocol client + server |
 | [Structured Output](docs/structured-output.md) | JSON schema constrained output |
 | [Retry & Fallback](docs/retry-fallback.md) | Resilience patterns |
 

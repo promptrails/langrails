@@ -13,3 +13,4 @@
   - [Chain](chain.md)
   - [Graph](graph.md)
   - [MCP](mcp.md)
+  - [A2A](a2a.md)
