@@ -6,14 +6,6 @@ Unified LLM provider interface for Go. One API, 11 providers.
 [![CI](https://github.com/promptrails/unillm/actions/workflows/ci.yml/badge.svg)](https://github.com/promptrails/unillm/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/promptrails/unillm)](https://goreportcard.com/report/github.com/promptrails/unillm)
 
-## Install
-
-```bash
-go get github.com/promptrails/unillm
-```
-
-## Quick Start
-
 ```go
 provider := openai.New("sk-...")
 resp, _ := provider.Complete(ctx, &unillm.CompletionRequest{
@@ -23,66 +15,39 @@ resp, _ := provider.Complete(ctx, &unillm.CompletionRequest{
 fmt.Println(resp.Content)
 ```
 
-Switch providers by changing one line:
+## Install
 
-```go
-provider := anthropic.New("sk-ant-...")  // or gemini, deepseek, groq, ...
+```bash
+go get github.com/promptrails/unillm
 ```
 
 ## Features
 
 - **11 providers** — OpenAI, Anthropic, Gemini, DeepSeek, Groq, Fireworks, xAI, OpenRouter, Together, Mistral, Cohere
 - **Streaming** — Channel-based, idiomatic Go
-- **Tool calling** — Unified interface across all providers
-- **Tool loop** — Automatic LLM → tool → LLM execution cycle
+- **Tool calling** — Unified interface + automatic tool execution loop
 - **Chain** — Sequential multi-step prompt pipelines
-- **Graph** — LangGraph-style stateful workflow engine with conditional routing
-- **MCP** — Model Context Protocol client for external tool integration
-- **Structured output** — JSON schema support across all providers
+- **Graph** — LangGraph-style stateful workflow engine
+- **MCP** — Model Context Protocol client
+- **Structured output** — JSON schema across all providers
 - **Retry & Fallback** — Composable resilience decorators
 - **Zero dependencies** — Only Go standard library
 
 ## Documentation
 
-| Topic | Description |
-|-------|-------------|
+| | |
+|---|---|
 | [Getting Started](docs/getting-started.md) | Installation, first request, error handling |
-| [Providers](docs/providers.md) | All 11 providers with config and model examples |
-| [Streaming](docs/streaming.md) | Real-time token streaming with channels |
-| [Tool Calling](docs/tool-calling.md) | Function calling and automatic tool loop |
-| [Chain](docs/chain.md) | Sequential multi-step prompt pipelines |
-| [Graph](docs/graph.md) | LangGraph-style stateful workflows |
+| [Providers](docs/providers.md) | All 11 providers, feature matrix, config |
+| [Streaming](docs/streaming.md) | Real-time token streaming |
+| [Tool Calling](docs/tool-calling.md) | Function calling + automatic tool loop |
+| [Chain](docs/chain.md) | Sequential prompt pipelines |
+| [Graph](docs/graph.md) | Stateful workflows, conditional routing |
 | [MCP](docs/mcp.md) | Model Context Protocol integration |
 | [Structured Output](docs/structured-output.md) | JSON schema constrained output |
-| [Retry & Fallback](docs/retry-fallback.md) | Resilience and failover patterns |
+| [Retry & Fallback](docs/retry-fallback.md) | Resilience patterns |
 
-## Architecture
-
-```
-unillm/
-├── provider.go     # Provider interface
-├── message.go      # Message, ToolCall, ToolDefinition
-├── stream.go       # StreamEvent types
-├── errors.go       # APIError with helpers
-├── retry.go        # RetryProvider decorator
-├── fallback.go     # FallbackProvider decorator
-├── compat/         # Shared OpenAI-compatible base
-├── tools/          # Tool loop execution
-├── chain/          # Sequential prompt chains
-├── graph/          # Stateful workflow engine
-├── mcp/            # MCP client
-├── openai/         # OpenAI
-├── anthropic/      # Anthropic (Claude)
-├── gemini/         # Google Gemini
-├── deepseek/       # DeepSeek
-├── groq/           # Groq
-├── fireworks/      # Fireworks AI
-├── xai/            # xAI (Grok)
-├── openrouter/     # OpenRouter
-├── together/       # Together AI
-├── mistral/        # Mistral AI
-└── cohere/         # Cohere
-```
+Full docs with search: [promptrails.github.io/unillm](https://promptrails.github.io/unillm)
 
 ## License
 
