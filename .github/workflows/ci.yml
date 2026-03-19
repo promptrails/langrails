@@ -7,6 +7,34 @@ on:
     branches: [main]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Check formatting
+        run: |
+          gofmt -l . | tee /tmp/gofmt.out
+          test ! -s /tmp/gofmt.out || (echo "Files need formatting:" && cat /tmp/gofmt.out && exit 1)
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+      - name: gosec
+        uses: securego/gosec@master
+        with:
+          args: -quiet ./...
+
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -23,9 +51,6 @@ jobs:
 
       - name: Verify dependencies
         run: go mod verify
-
-      - name: Vet
-        run: go vet ./...
 
       - name: Test
         run: go test -race -coverprofile=coverage.out ./...

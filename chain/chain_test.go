@@ -73,7 +73,7 @@ func TestChain_WithTransform(t *testing.T) {
 	c := New(provider, []Step{
 		{
 			SystemPrompt: "Echo",
-			Transform:    func(output string) string { return strings.ToUpper(output) },
+			Transform:    strings.ToUpper,
 		},
 		{SystemPrompt: "Echo"},
 	}, WithModel("test"))

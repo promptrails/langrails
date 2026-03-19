@@ -307,7 +307,8 @@ func convertMessages(req *unillm.CompletionRequest) []content {
 
 		c := content{Role: role}
 
-		if m.Role == "tool" {
+		switch {
+		case m.Role == "tool":
 			// Tool results in Gemini are user messages with functionResponse
 			var respData map[string]interface{}
 			_ = json.Unmarshal([]byte(m.Content), &respData)
@@ -321,7 +322,7 @@ func convertMessages(req *unillm.CompletionRequest) []content {
 					Response: respData,
 				},
 			}}
-		} else if len(m.ToolCalls) > 0 {
+		case len(m.ToolCalls) > 0:
 			for _, tc := range m.ToolCalls {
 				var args map[string]interface{}
 				_ = json.Unmarshal([]byte(tc.Arguments), &args)
@@ -332,7 +333,7 @@ func convertMessages(req *unillm.CompletionRequest) []content {
 					},
 				})
 			}
-		} else {
+		default:
 			c.Parts = []part{{Text: m.Content}}
 		}
 

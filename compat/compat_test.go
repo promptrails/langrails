@@ -41,7 +41,7 @@ func TestProvider_Complete(t *testing.T) {
 			Usage: usage{PromptTokens: 10, CompletionTokens: 5, TotalTokens: 15},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -74,7 +74,7 @@ func TestProvider_Complete(t *testing.T) {
 func TestProvider_Complete_WithTools(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req request
-		json.NewDecoder(r.Body).Decode(&req)
+		_ = json.NewDecoder(r.Body).Decode(&req)
 
 		if len(req.Tools) != 1 {
 			t.Errorf("expected 1 tool, got %d", len(req.Tools))
@@ -101,7 +101,7 @@ func TestProvider_Complete_WithTools(t *testing.T) {
 			}},
 			Usage: usage{PromptTokens: 20, CompletionTokens: 10, TotalTokens: 30},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -134,7 +134,7 @@ func TestProvider_Complete_WithTools(t *testing.T) {
 func TestProvider_Complete_APIError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(errorResponse{
+		_ = json.NewEncoder(w).Encode(errorResponse{
 			Error: struct {
 				Message string `json:"message"`
 				Type    string `json:"type"`
@@ -178,10 +178,10 @@ func TestProvider_Stream(t *testing.T) {
 		}
 
 		for _, chunk := range chunks {
-			w.Write([]byte("data: " + chunk + "\n\n"))
+			_, _ = w.Write([]byte("data: " + chunk + "\n\n"))
 			flusher.Flush()
 		}
-		w.Write([]byte("data: [DONE]\n\n"))
+		_, _ = w.Write([]byte("data: [DONE]\n\n"))
 		flusher.Flush()
 	}))
 	defer server.Close()
@@ -223,7 +223,7 @@ func TestProvider_ExtraHeaders(t *testing.T) {
 			t.Errorf("expected X-Custom header, got %q", r.Header.Get("X-Custom"))
 		}
 		resp := response{Model: "test", Choices: []choice{{Message: choiceMessage{Content: "ok"}, FinishReason: "stop"}}}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 

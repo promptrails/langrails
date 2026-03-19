@@ -80,7 +80,7 @@ func newTestServer(t *testing.T) *httptest.Server {
 
 		default:
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(jsonRPCResponse{
+			_ = json.NewEncoder(w).Encode(jsonRPCResponse{
 				JSONRPC: "2.0",
 				ID:      req.ID,
 				Error:   &jsonRPCError{Code: -32601, Message: "method not found"},
@@ -89,7 +89,7 @@ func newTestServer(t *testing.T) *httptest.Server {
 		}
 
 		resultBytes, _ := json.Marshal(result)
-		json.NewEncoder(w).Encode(jsonRPCResponse{
+		_ = json.NewEncoder(w).Encode(jsonRPCResponse{
 			JSONRPC: "2.0",
 			ID:      req.ID,
 			Result:  resultBytes,

@@ -68,7 +68,7 @@ func TestRunLoop_SingleToolCall(t *testing.T) {
 	executor := NewMap(map[string]Func{
 		"get_weather": func(_ context.Context, args string) (string, error) {
 			var parsed map[string]string
-			json.Unmarshal([]byte(args), &parsed)
+			_ = json.Unmarshal([]byte(args), &parsed)
 			if parsed["city"] != "Istanbul" {
 				t.Errorf("expected city Istanbul, got %q", parsed["city"])
 			}
