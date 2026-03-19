@@ -1,23 +1,3 @@
-// Package gemini provides a Google Gemini LLM provider for llmrails.
-//
-// It supports Gemini models including Gemini 2.0 Flash, Gemini 1.5 Pro,
-// and Gemini 1.5 Flash. Features include streaming, tool/function calling,
-// and vision.
-//
-// Note: Gemini's API differs from OpenAI's in several ways:
-//   - Uses "model" role instead of "assistant"
-//   - System prompts are a separate "systemInstruction" field
-//   - API key is passed as a URL query parameter
-//   - Tool definitions use "functionDeclarations"
-//   - Streaming uses ?alt=sse query parameter
-//
-// # Usage
-//
-//	provider := gemini.New("your-api-key")
-//	resp, err := provider.Complete(ctx, &llmrails.CompletionRequest{
-//		Model:    "gemini-2.0-flash",
-//		Messages: []llmrails.Message{{Role: "user", Content: "Hello!"}},
-//	})
 package gemini
 
 import (

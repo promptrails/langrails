@@ -1,23 +1,3 @@
-// Package mcp provides a Model Context Protocol (MCP) client for llmrails.
-//
-// MCP is a protocol for connecting LLMs to external tools and data sources.
-// This client connects to MCP servers and exposes their tools as llmrails
-// ToolDefinitions, making them usable with any llmrails Provider and the
-// tools.RunLoop function.
-//
-// # Usage
-//
-//	client, err := mcp.NewClient("http://localhost:8080/mcp", mcp.WithBearerToken("token"))
-//	if err != nil {
-//		log.Fatal(err)
-//	}
-//	defer client.Close()
-//
-//	// Get tool definitions for the LLM
-//	toolDefs := client.ToolDefinitions()
-//
-//	// Use as a tool executor in RunLoop
-//	result, err := tools.RunLoop(ctx, provider, req, client)
 package mcp
 
 import (

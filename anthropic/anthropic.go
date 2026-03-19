@@ -1,21 +1,3 @@
-// Package anthropic provides an Anthropic (Claude) LLM provider for llmrails.
-//
-// It supports all Claude models including Claude Sonnet, Opus, and Haiku.
-// Features include streaming, tool/function calling, and vision.
-//
-// Note: Anthropic's API differs from OpenAI's in several ways:
-//   - System prompts are a separate field, not a message
-//   - max_tokens is required (defaults to 4096 if not set)
-//   - Messages use content blocks instead of plain strings
-//   - Tool calls use "tool_use" blocks instead of function calls
-//
-// # Usage
-//
-//	provider := anthropic.New("sk-ant-...")
-//	resp, err := provider.Complete(ctx, &llmrails.CompletionRequest{
-//		Model:    "claude-sonnet-4-20250514",
-//		Messages: []llmrails.Message{{Role: "user", Content: "Hello!"}},
-//	})
 package anthropic
 
 import (

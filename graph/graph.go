@@ -1,33 +1,3 @@
-// Package graph provides a LangGraph-style stateful workflow engine.
-//
-// A graph defines a set of nodes connected by edges. Each node processes
-// the current state and returns an updated state. Edges can be conditional,
-// routing to different nodes based on the state.
-//
-// This enables complex agent architectures like:
-//   - Multi-step reasoning with branching logic
-//   - Human-in-the-loop approval flows
-//   - Iterative refinement loops
-//   - Multi-agent coordination
-//
-// # Usage
-//
-//	g := graph.New[MyState]()
-//	g.AddNode("classify", classifyFn)
-//	g.AddNode("handle_positive", handlePositiveFn)
-//	g.AddNode("handle_negative", handleNegativeFn)
-//
-//	g.SetEntryPoint("classify")
-//	g.AddConditionalEdge("classify", func(s MyState) string {
-//		if s.Sentiment == "positive" {
-//			return "handle_positive"
-//		}
-//		return "handle_negative"
-//	})
-//	g.AddEdge("handle_positive", graph.END)
-//	g.AddEdge("handle_negative", graph.END)
-//
-//	result, err := g.Run(ctx, MyState{Input: "I love this!"})
 package graph
 
 import (

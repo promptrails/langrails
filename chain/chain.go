@@ -1,21 +1,3 @@
-// Package chain provides sequential prompt chain execution.
-//
-// A chain is a series of steps where each step's output can be used as
-// input to the next step. This enables multi-step LLM workflows like:
-// summarize → translate → format.
-//
-// # Usage
-//
-//	c := chain.New(provider,
-//		chain.Step{
-//			SystemPrompt: "Summarize the following text in 2 sentences.",
-//		},
-//		chain.Step{
-//			SystemPrompt: "Translate the following to Turkish.",
-//		},
-//	)
-//
-//	result, err := c.Run(ctx, "Long article text here...")
 package chain
 
 import (

@@ -1,16 +1,3 @@
-// Package openrouter provides an OpenRouter LLM provider for llmrails.
-//
-// OpenRouter is a unified API gateway that routes to multiple LLM providers.
-// It exposes an OpenAI-compatible API with additional headers for site
-// identification and ranking.
-//
-// # Usage
-//
-//	provider := openrouter.New("your-api-key")
-//	resp, err := provider.Complete(ctx, &llmrails.CompletionRequest{
-//		Model:    "openai/gpt-4o",
-//		Messages: []llmrails.Message{{Role: "user", Content: "Hello!"}},
-//	})
 package openrouter
 
 import (

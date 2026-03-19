@@ -1,14 +1,3 @@
-// Package mistral provides a Mistral AI LLM provider for llmrails.
-//
-// Mistral AI exposes an OpenAI-compatible API.
-//
-// # Usage
-//
-//	provider := mistral.New("your-api-key")
-//	resp, err := provider.Complete(ctx, &llmrails.CompletionRequest{
-//		Model:    "mistral-large-latest",
-//		Messages: []llmrails.Message{{Role: "user", Content: "Hello!"}},
-//	})
 package mistral
 
 import (

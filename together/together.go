@@ -1,14 +1,3 @@
-// Package together provides a Together AI LLM provider for llmrails.
-//
-// Together AI exposes an OpenAI-compatible API.
-//
-// # Usage
-//
-//	provider := together.New("your-api-key")
-//	resp, err := provider.Complete(ctx, &llmrails.CompletionRequest{
-//		Model:    "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
-//		Messages: []llmrails.Message{{Role: "user", Content: "Hello!"}},
-//	})
 package together
 
 import (

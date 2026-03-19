@@ -1,14 +1,3 @@
-// Package fireworks provides a Fireworks AI LLM provider for llmrails.
-//
-// Fireworks AI exposes an OpenAI-compatible API.
-//
-// # Usage
-//
-//	provider := fireworks.New("your-api-key")
-//	resp, err := provider.Complete(ctx, &llmrails.CompletionRequest{
-//		Model:    "accounts/fireworks/models/llama-v3p1-70b-instruct",
-//		Messages: []llmrails.Message{{Role: "user", Content: "Hello!"}},
-//	})
 package fireworks
 
 import (

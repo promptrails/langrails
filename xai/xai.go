@@ -1,14 +1,3 @@
-// Package xai provides an xAI (Grok) LLM provider for llmrails.
-//
-// xAI exposes an OpenAI-compatible API.
-//
-// # Usage
-//
-//	provider := xai.New("your-api-key")
-//	resp, err := provider.Complete(ctx, &llmrails.CompletionRequest{
-//		Model:    "grok-2",
-//		Messages: []llmrails.Message{{Role: "user", Content: "Hello!"}},
-//	})
 package xai
 
 import (

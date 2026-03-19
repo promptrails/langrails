@@ -1,15 +1,3 @@
-// Package deepseek provides a DeepSeek LLM provider for llmrails.
-//
-// DeepSeek exposes an OpenAI-compatible API, so this package is a thin
-// wrapper around the compat package with the correct base URL.
-//
-// # Usage
-//
-//	provider := deepseek.New("your-api-key")
-//	resp, err := provider.Complete(ctx, &llmrails.CompletionRequest{
-//		Model:    "deepseek-chat",
-//		Messages: []llmrails.Message{{Role: "user", Content: "Hello!"}},
-//	})
 package deepseek
 
 import (

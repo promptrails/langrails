@@ -1,28 +1,3 @@
-// Package a2a provides a client and server for the Agent-to-Agent (A2A) protocol.
-//
-// A2A is an open protocol by Google for inter-agent communication. It enables
-// agents to discover each other's capabilities, send messages, and coordinate
-// tasks via JSON-RPC 2.0 over HTTP.
-//
-// # Client Usage
-//
-//	client := a2a.NewClient("https://agent.example.com/a2a")
-//
-//	// Discover agent capabilities
-//	card, err := client.GetAgentCard(ctx)
-//
-//	// Send a message
-//	task, err := client.SendMessage(ctx, a2a.SendMessageRequest{
-//		Message: a2a.Message{
-//			Role:  a2a.RoleUser,
-//			Parts: []a2a.Part{a2a.NewTextPart("Hello!")},
-//		},
-//	})
-//
-// # Server Usage
-//
-//	handler := a2a.NewHandler(card, &myTaskHandler{})
-//	http.Handle("/a2a", handler)
 package a2a
 
 import (

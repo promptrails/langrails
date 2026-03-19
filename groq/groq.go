@@ -1,14 +1,3 @@
-// Package groq provides a Groq LLM provider for llmrails.
-//
-// Groq exposes an OpenAI-compatible API optimized for fast inference.
-//
-// # Usage
-//
-//	provider := groq.New("your-api-key")
-//	resp, err := provider.Complete(ctx, &llmrails.CompletionRequest{
-//		Model:    "llama-3.1-70b-versatile",
-//		Messages: []llmrails.Message{{Role: "user", Content: "Hello!"}},
-//	})
 package groq
 
 import (

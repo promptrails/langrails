@@ -1,14 +1,3 @@
-// Package cohere provides a Cohere LLM provider for llmrails.
-//
-// Cohere exposes an OpenAI-compatible API via its compatibility endpoint.
-//
-// # Usage
-//
-//	provider := cohere.New("your-api-key")
-//	resp, err := provider.Complete(ctx, &llmrails.CompletionRequest{
-//		Model:    "command-r-plus",
-//		Messages: []llmrails.Message{{Role: "user", Content: "Hello!"}},
-//	})
 package cohere
 
 import (

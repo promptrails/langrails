@@ -1,16 +1,3 @@
-// Package openai provides an OpenAI LLM provider for llmrails.
-//
-// It supports all OpenAI chat completion models including GPT-4o, GPT-4,
-// and GPT-3.5. Features include streaming, tool/function calling,
-// and structured output via JSON schema.
-//
-// # Usage
-//
-//	provider := openai.New("sk-...")
-//	resp, err := provider.Complete(ctx, &llmrails.CompletionRequest{
-//		Model:    "gpt-4o",
-//		Messages: []llmrails.Message{{Role: "user", Content: "Hello!"}},
-//	})
 package openai
 
 import (

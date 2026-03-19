@@ -1,20 +1,3 @@
-// Package tools provides automatic tool/function calling loop execution.
-//
-// When an LLM responds with tool calls, this package handles the cycle of:
-// 1. Receiving tool calls from the LLM
-// 2. Executing them via a ToolExecutor
-// 3. Sending results back to the LLM
-// 4. Repeating until the LLM gives a final text response
-//
-// # Usage
-//
-//	executor := tools.NewMap(map[string]tools.Func{
-//		"get_weather": func(ctx context.Context, args string) (string, error) {
-//			return `{"temp": 22}`, nil
-//		},
-//	})
-//
-//	resp, err := tools.RunLoop(ctx, provider, req, executor)
 package tools
 
 import (
