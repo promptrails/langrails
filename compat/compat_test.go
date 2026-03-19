@@ -242,3 +242,138 @@ func TestProvider_ExtraHeaders(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestProvider_Complete_StructuredOutput(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if req.ResponseFormat == nil || req.ResponseFormat.Type != "json_schema" {
+			t.Error("expected json_schema response format")
+		}
+		if req.ResponseFormat.JSONSchema == nil || !req.ResponseFormat.JSONSchema.Strict {
+			t.Error("expected strict mode")
+		}
+		resp := response{Choices: []choice{{Message: choiceMessage{Content: `{"a":1}`}, FinishReason: "stop"}}}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	schema := []byte(`{"type":"object","properties":{"a":{"type":"integer"}}}`)
+	provider := New(Config{Name: "test", BaseURL: server.URL, APIKey: "key"})
+	resp, err := provider.Complete(context.Background(), &llmrails.CompletionRequest{
+		Model:        "test",
+		Messages:     []llmrails.Message{{Role: "user", Content: "Hi"}},
+		OutputSchema: &schema,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Content != `{"a":1}` {
+		t.Errorf("unexpected content: %q", resp.Content)
+	}
+}
+
+func TestProvider_Complete_WithAllParams(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if req.FrequencyPenalty == nil || *req.FrequencyPenalty != 0.5 {
+			t.Error("expected frequency_penalty 0.5")
+		}
+		if req.PresencePenalty == nil || *req.PresencePenalty != 0.3 {
+			t.Error("expected presence_penalty 0.3")
+		}
+		if len(req.Stop) != 1 || req.Stop[0] != "END" {
+			t.Error("expected stop sequence")
+		}
+		if req.Seed == nil || *req.Seed != 42 {
+			t.Error("expected seed 42")
+		}
+		resp := response{Choices: []choice{{Message: choiceMessage{Content: "ok"}, FinishReason: "stop"}}}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	fp := 0.5
+	pp := 0.3
+	seed := 42
+	provider := New(Config{Name: "test", BaseURL: server.URL, APIKey: "key"})
+	_, err := provider.Complete(context.Background(), &llmrails.CompletionRequest{
+		Model:            "test",
+		Messages:         []llmrails.Message{{Role: "user", Content: "Hi"}},
+		FrequencyPenalty: &fp,
+		PresencePenalty:  &pp,
+		Stop:             []string{"END"},
+		Seed:             &seed,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestProvider_Complete_Reasoning(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if req.Reasoning == nil || req.Reasoning.Effort != "medium" {
+			t.Error("expected reasoning effort medium")
+		}
+		resp := response{Choices: []choice{{Message: choiceMessage{Content: "ok"}, FinishReason: "stop"}}}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	provider := New(Config{Name: "test", BaseURL: server.URL, APIKey: "key"})
+	_, err := provider.Complete(context.Background(), &llmrails.CompletionRequest{
+		Model:    "o1",
+		Messages: []llmrails.Message{{Role: "user", Content: "Think"}},
+		Thinking: true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestProvider_Stream_ToolCalls(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		flusher := w.(http.Flusher)
+		chunks := []string{
+			`{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"get_weather","arguments":""}}]}}]}`,
+			`{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"city\":"}}]}}]}`,
+			`{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"Istanbul\"}"}}]}}]}`,
+			`{"choices":[{"delta":{},"finish_reason":"tool_calls"}]}`,
+		}
+		for _, c := range chunks {
+			_, _ = w.Write([]byte("data: " + c + "\n\n"))
+			flusher.Flush()
+		}
+		_, _ = w.Write([]byte("data: [DONE]\n\n"))
+		flusher.Flush()
+	}))
+	defer server.Close()
+
+	provider := New(Config{Name: "test", BaseURL: server.URL, APIKey: "key"})
+	ch, err := provider.Stream(context.Background(), &llmrails.CompletionRequest{
+		Model:    "gpt-4o",
+		Messages: []llmrails.Message{{Role: "user", Content: "Weather?"}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var toolCalls []llmrails.ToolCall
+	for event := range ch {
+		if event.Type == llmrails.EventToolCall && event.ToolCall != nil {
+			toolCalls = append(toolCalls, *event.ToolCall)
+		}
+	}
+	if len(toolCalls) != 1 {
+		t.Fatalf("expected 1 tool call, got %d", len(toolCalls))
+	}
+	if toolCalls[0].Name != "get_weather" {
+		t.Errorf("expected 'get_weather', got %q", toolCalls[0].Name)
+	}
+	if toolCalls[0].Arguments != `{"city":"Istanbul"}` {
+		t.Errorf("unexpected args: %s", toolCalls[0].Arguments)
+	}
+}

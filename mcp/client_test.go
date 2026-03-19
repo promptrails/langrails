@@ -185,3 +185,87 @@ func TestClient_ToolDefinitionsHaveParameters(t *testing.T) {
 		t.Errorf("expected type 'object', got %v", params["type"])
 	}
 }
+
+func TestClient_RefreshTools(t *testing.T) {
+	server := newTestServer(t)
+	defer server.Close()
+
+	client, err := NewClient(server.URL, WithBearerToken("test-token"))
+	if err != nil {
+		t.Fatalf("failed to create client: %v", err)
+	}
+
+	err = client.RefreshTools()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(client.ToolDefinitions()) != 2 {
+		t.Errorf("expected 2 tools after refresh, got %d", len(client.ToolDefinitions()))
+	}
+}
+
+func TestClient_WithAPIKey(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-API-Key") != "my-key" {
+			t.Errorf("expected X-API-Key header, got %q", r.Header.Get("X-API-Key"))
+		}
+		var req jsonRPCRequest
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		var result interface{}
+		switch req.Method {
+		case "initialize":
+			result = map[string]interface{}{"protocolVersion": "2025-03-26"}
+		case "tools/list":
+			result = map[string]interface{}{"tools": []interface{}{}}
+		}
+		resultBytes, _ := json.Marshal(result)
+		_ = json.NewEncoder(w).Encode(jsonRPCResponse{JSONRPC: "2.0", ID: req.ID, Result: resultBytes})
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, WithAPIKey("my-key"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer client.Close()
+}
+
+func TestClient_WithHeader(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Custom") != "value" {
+			t.Errorf("expected X-Custom header, got %q", r.Header.Get("X-Custom"))
+		}
+		var req jsonRPCRequest
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		var result interface{}
+		switch req.Method {
+		case "initialize":
+			result = map[string]interface{}{"protocolVersion": "2025-03-26"}
+		case "tools/list":
+			result = map[string]interface{}{"tools": []interface{}{}}
+		}
+		resultBytes, _ := json.Marshal(result)
+		_ = json.NewEncoder(w).Encode(jsonRPCResponse{JSONRPC: "2.0", ID: req.ID, Result: resultBytes})
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, WithHeader("X-Custom", "value"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer client.Close()
+}
+
+func TestClient_WithHTTPClient(t *testing.T) {
+	server := newTestServer(t)
+	defer server.Close()
+
+	client, err := NewClient(server.URL,
+		WithBearerToken("test-token"),
+		WithHTTPClient(&http.Client{}),
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer client.Close()
+}

@@ -140,3 +140,51 @@ func TestRetryProvider_DoesNotRetryNonAPIError(t *testing.T) {
 		t.Errorf("expected 1 call (no retry for non-API errors), got %d", calls)
 	}
 }
+
+func TestRetryProvider_Stream_Success(t *testing.T) {
+	ch := make(chan StreamEvent, 1)
+	ch <- StreamEvent{Type: EventContent, Content: "hi"}
+	close(ch)
+
+	inner := &mockProvider{
+		streamFunc: func(_ context.Context, _ *CompletionRequest) (<-chan StreamEvent, error) {
+			return ch, nil
+		},
+	}
+
+	provider := WithRetry(inner, 3, WithBaseDelay(time.Millisecond))
+	result, err := provider.Stream(context.Background(), &CompletionRequest{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	event := <-result
+	if event.Content != "hi" {
+		t.Errorf("expected 'hi', got %q", event.Content)
+	}
+}
+
+func TestRetryProvider_Stream_RetriesOnError(t *testing.T) {
+	calls := 0
+	ch := make(chan StreamEvent, 1)
+	ch <- StreamEvent{Type: EventDone}
+	close(ch)
+
+	inner := &mockProvider{
+		streamFunc: func(_ context.Context, _ *CompletionRequest) (<-chan StreamEvent, error) {
+			calls++
+			if calls < 2 {
+				return nil, &APIError{StatusCode: 500, Message: "fail", Provider: "test"}
+			}
+			return ch, nil
+		},
+	}
+
+	provider := WithRetry(inner, 3, WithBaseDelay(time.Millisecond))
+	_, err := provider.Stream(context.Background(), &CompletionRequest{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if calls != 2 {
+		t.Errorf("expected 2 calls, got %d", calls)
+	}
+}
