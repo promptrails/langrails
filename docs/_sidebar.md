@@ -5,7 +5,10 @@
   - [Providers](providers.md)
   - [Parameters](parameters.md)
   - [Streaming](streaming.md)
+  - [Vision / Multimodal](vision.md)
   - [Structured Output](structured-output.md)
+  - [Prompt Templates](prompt-templates.md)
+  - [Memory](memory.md)
   - [Retry & Fallback](retry-fallback.md)
 
 - **Agent Toolkit**

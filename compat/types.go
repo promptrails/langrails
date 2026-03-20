@@ -25,10 +25,20 @@ type reasoningParam struct {
 }
 
 type message struct {
-	Role       string     `json:"role"`
-	Content    string     `json:"content"`
-	ToolCallID string     `json:"tool_call_id,omitempty"`
-	ToolCalls  []toolCall `json:"tool_calls,omitempty"`
+	Role       string      `json:"role"`
+	Content    interface{} `json:"content"` // string or []contentPart
+	ToolCallID string      `json:"tool_call_id,omitempty"`
+	ToolCalls  []toolCall  `json:"tool_calls,omitempty"`
+}
+
+type contentPart struct {
+	Type     string    `json:"type"`
+	Text     string    `json:"text,omitempty"`
+	ImageURL *imageURL `json:"image_url,omitempty"`
+}
+
+type imageURL struct {
+	URL string `json:"url"`
 }
 
 type tool struct {

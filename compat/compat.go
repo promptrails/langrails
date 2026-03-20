@@ -321,8 +321,26 @@ func convertMessages(req *langrails.CompletionRequest) []message {
 
 	for _, m := range req.Messages {
 		msg := message{
-			Role:    m.Role,
-			Content: m.Content,
+			Role: m.Role,
+		}
+
+		// Multimodal content parts
+		if len(m.ContentParts) > 0 {
+			parts := make([]contentPart, 0, len(m.ContentParts))
+			for _, p := range m.ContentParts {
+				switch p.Type {
+				case "text":
+					parts = append(parts, contentPart{Type: "text", Text: p.Text})
+				case "image":
+					parts = append(parts, contentPart{
+						Type:     "image_url",
+						ImageURL: &imageURL{URL: p.ImageURL},
+					})
+				}
+			}
+			msg.Content = parts
+		} else {
+			msg.Content = m.Content
 		}
 
 		if m.ToolCallID != "" {
