@@ -14,7 +14,7 @@
 // # Quick Start
 //
 //	import (
-//		"github.com/promptrails/langrails/openai"
+//		"github.com/promptrails/langrails/llm/openai"
 //	)
 //
 //	provider := openai.New("sk-...")

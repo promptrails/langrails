@@ -7,12 +7,20 @@ Unified LLM provider interface for Go. One API, many providers.
 [![Go Report Card](https://goreportcard.com/badge/github.com/promptrails/langrails)](https://goreportcard.com/report/github.com/promptrails/langrails)
 
 ```go
-provider := openai.New("sk-...")
+import "github.com/promptrails/langrails/llm"
+
+provider := llm.MustNew(llm.OpenAI, "sk-...")
 resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
     Model:    "gpt-4o",
     Messages: []langrails.Message{{Role: "user", Content: "Hello!"}},
 })
 fmt.Println(resp.Content)
+```
+
+Switch providers by changing one constant:
+
+```go
+provider := llm.MustNew(llm.Anthropic, "sk-ant-...")  // or Gemini, Ollama, ...
 ```
 
 ## Install

@@ -19,7 +19,7 @@ import (
     "log"
 
     "github.com/promptrails/langrails"
-    "github.com/promptrails/langrails/openai"
+    "github.com/promptrails/langrails/llm/openai"
 )
 
 func main() {
@@ -49,11 +49,11 @@ Every provider implements the same `langrails.Provider` interface. To switch fro
 
 ```go
 // Before
-import "github.com/promptrails/langrails/openai"
+import "github.com/promptrails/langrails/llm/openai"
 provider := openai.New("sk-...")
 
 // After
-import "github.com/promptrails/langrails/anthropic"
+import "github.com/promptrails/langrails/llm/anthropic"
 provider := anthropic.New("sk-ant-...")
 ```
 
