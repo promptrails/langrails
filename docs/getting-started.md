@@ -8,7 +8,9 @@ go get github.com/promptrails/langrails
 
 Requires Go 1.22 or later. No external dependencies — only Go standard library.
 
-## Your First Request
+## Quick Start (Registry)
+
+The easiest way to create a provider is using the `llm` registry:
 
 ```go
 package main
@@ -19,12 +21,15 @@ import (
     "log"
 
     "github.com/promptrails/langrails"
-    "github.com/promptrails/langrails/llm/openai"
+    "github.com/promptrails/langrails/llm"
 )
 
 func main() {
-    // Create a provider
-    provider := openai.New("sk-your-api-key")
+    // Create a provider using the registry
+    provider, err := llm.New(llm.OpenAI, "sk-your-api-key")
+    if err != nil {
+        log.Fatal(err)
+    }
 
     // Send a completion request
     resp, err := provider.Complete(context.Background(), &langrails.CompletionRequest{
@@ -45,19 +50,36 @@ func main() {
 
 ## Switching Providers
 
-Every provider implements the same `langrails.Provider` interface. To switch from OpenAI to Anthropic, just change the import and constructor:
+With the registry, switching providers is a single constant change:
 
 ```go
-// Before
-import "github.com/promptrails/langrails/llm/openai"
-provider := openai.New("sk-...")
+// OpenAI
+provider, _ := llm.New(llm.OpenAI, "sk-...")
 
-// After
-import "github.com/promptrails/langrails/llm/anthropic"
-provider := anthropic.New("sk-ant-...")
+// Anthropic
+provider, _ := llm.New(llm.Anthropic, "sk-ant-...")
+
+// Gemini
+provider, _ := llm.New(llm.Gemini, "your-key")
+
+// Local (Ollama — no key needed)
+provider, _ := llm.New(llm.Ollama, "")
 ```
 
 Your `CompletionRequest` stays the same. langrails handles the API differences internally.
+
+## Direct Provider Import
+
+You can also import providers directly for provider-specific options:
+
+```go
+import "github.com/promptrails/langrails/llm/openai"
+
+provider := openai.New("sk-...",
+    openai.WithBaseURL("https://my-proxy.com/v1/chat/completions"),
+    openai.WithHTTPClient(&http.Client{Timeout: 2 * time.Minute}),
+)
+```
 
 ## Request Parameters
 
@@ -118,7 +140,7 @@ if err != nil {
 
 - [Streaming](streaming.md) — Real-time token streaming
 - [Tool Calling](tool-calling.md) — Function/tool calling
-- [Providers](providers.md) — All 11 supported providers
+- [Providers](providers.md) — All 12 supported providers
 - [Chain](chain.md) — Sequential prompt pipelines
 - [Graph](graph.md) — Stateful workflow engine
 - [MCP](mcp.md) — Model Context Protocol integration

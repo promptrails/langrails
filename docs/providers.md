@@ -1,6 +1,22 @@
 # Providers
 
-langrails supports 12 LLM providers through a unified interface. Each provider is a separate Go package that you import only when needed.
+langrails supports 12 LLM providers through a unified interface.
+
+## Using the Registry
+
+The simplest way to create any provider:
+
+```go
+import "github.com/promptrails/langrails/llm"
+
+provider, err := llm.New(llm.OpenAI, "sk-...")
+// or panic on error:
+provider := llm.MustNew(llm.Anthropic, "sk-ant-...")
+```
+
+Available constants: `llm.OpenAI`, `llm.Anthropic`, `llm.Gemini`, `llm.DeepSeek`, `llm.Groq`, `llm.Fireworks`, `llm.XAI`, `llm.OpenRouter`, `llm.Together`, `llm.Mistral`, `llm.Cohere`, `llm.Ollama`
+
+For provider-specific options (custom base URL, HTTP client), use the direct import instead.
 
 ## Provider List
 
