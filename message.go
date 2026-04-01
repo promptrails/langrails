@@ -80,4 +80,9 @@ type ToolCall struct {
 
 	// Arguments is a JSON-encoded string of the arguments to pass to the tool.
 	Arguments string
+
+	// Metadata holds provider-specific data that must be round-tripped through
+	// the conversation history. For example, Gemini requires thoughtSignature
+	// to be returned with function call parts in subsequent requests.
+	Metadata map[string]string
 }

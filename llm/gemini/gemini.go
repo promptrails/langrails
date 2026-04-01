@@ -173,6 +173,9 @@ func (p *Provider) readStream(body io.ReadCloser, ch chan<- langrails.StreamEven
 					Name:      part.FunctionCall.Name,
 					Arguments: string(args),
 				}
+				if part.FunctionCall.ThoughtSignature != "" {
+					tc.Metadata = map[string]string{"thoughtSignature": part.FunctionCall.ThoughtSignature}
+				}
 				ch <- langrails.StreamEvent{
 					Type:     langrails.EventToolCall,
 					ToolCall: &tc,
@@ -268,11 +271,15 @@ func (p *Provider) parseResponse(resp *response) *langrails.CompletionResponse {
 			}
 			if part.FunctionCall != nil {
 				args, _ := json.Marshal(part.FunctionCall.Args)
-				result.ToolCalls = append(result.ToolCalls, langrails.ToolCall{
+				tc := langrails.ToolCall{
 					ID:        part.FunctionCall.Name,
 					Name:      part.FunctionCall.Name,
 					Arguments: string(args),
-				})
+				}
+				if part.FunctionCall.ThoughtSignature != "" {
+					tc.Metadata = map[string]string{"thoughtSignature": part.FunctionCall.ThoughtSignature}
+				}
+				result.ToolCalls = append(result.ToolCalls, tc)
 			}
 		}
 	}
@@ -310,11 +317,17 @@ func convertMessages(req *langrails.CompletionRequest) []content {
 			for _, tc := range m.ToolCalls {
 				var args map[string]interface{}
 				_ = json.Unmarshal([]byte(tc.Arguments), &args)
+				fc := &functionCall{
+					Name: tc.Name,
+					Args: args,
+				}
+				if tc.Metadata != nil {
+					if sig, ok := tc.Metadata["thoughtSignature"]; ok {
+						fc.ThoughtSignature = sig
+					}
+				}
 				c.Parts = append(c.Parts, part{
-					FunctionCall: &functionCall{
-						Name: tc.Name,
-						Args: args,
-					},
+					FunctionCall: fc,
 				})
 			}
 		default:

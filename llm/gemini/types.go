@@ -23,8 +23,9 @@ type part struct {
 }
 
 type functionCall struct {
-	Name string                 `json:"name"`
-	Args map[string]interface{} `json:"args"`
+	Name             string                 `json:"name"`
+	Args             map[string]interface{} `json:"args"`
+	ThoughtSignature string                 `json:"thoughtSignature,omitempty"`
 }
 
 type functionResponse struct {
