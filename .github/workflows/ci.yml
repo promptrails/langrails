@@ -15,7 +15,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.26'
 
       - name: Check formatting
         run: |
@@ -25,10 +25,17 @@ jobs:
       - name: Vet
         run: go vet ./...
 
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+      - name: Cache Go tools
+        uses: actions/cache@v4
         with:
-          version: latest
+          path: ~/go/bin
+          key: go-tools-${{ runner.os }}-go1.26
+
+      - name: Install golangci-lint
+        run: test -f ~/go/bin/golangci-lint || go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+      - name: golangci-lint
+        run: golangci-lint run ./...
 
       - name: gosec
         uses: securego/gosec@master
@@ -39,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: ['1.22', '1.23', '1.24']
+        go-version: ['1.24', '1.25', '1.26']
 
     steps:
       - uses: actions/checkout@v4
@@ -56,7 +63,7 @@ jobs:
         run: go test -race -coverprofile=coverage.out ./...
 
       - name: Coverage
-        if: matrix.go-version == '1.24'
+        if: matrix.go-version == '1.26'
         run: |
           go tool cover -func=coverage.out
           COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}')
