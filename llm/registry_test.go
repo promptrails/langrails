@@ -42,7 +42,7 @@ func TestMustNew_Works(t *testing.T) {
 
 func TestAllProviders(t *testing.T) {
 	providers := AllProviders()
-	if len(providers) != 13 {
-		t.Errorf("expected 13 providers, got %d", len(providers))
+	if len(providers) != 19 {
+		t.Errorf("expected 19 providers, got %d", len(providers))
 	}
 }

@@ -5,18 +5,24 @@ import (
 
 	"github.com/promptrails/langrails"
 	"github.com/promptrails/langrails/llm/anthropic"
+	"github.com/promptrails/langrails/llm/chutes"
 	"github.com/promptrails/langrails/llm/cohere"
+	"github.com/promptrails/langrails/llm/deepinfra"
 	"github.com/promptrails/langrails/llm/deepseek"
 	"github.com/promptrails/langrails/llm/fireworks"
+	"github.com/promptrails/langrails/llm/friendli"
 	"github.com/promptrails/langrails/llm/gemini"
 	"github.com/promptrails/langrails/llm/groq"
 	"github.com/promptrails/langrails/llm/mistral"
+	"github.com/promptrails/langrails/llm/moonshot"
+	"github.com/promptrails/langrails/llm/novita"
 	"github.com/promptrails/langrails/llm/ollama"
 	"github.com/promptrails/langrails/llm/openai"
 	"github.com/promptrails/langrails/llm/openrouter"
 	"github.com/promptrails/langrails/llm/perplexity"
 	"github.com/promptrails/langrails/llm/together"
 	"github.com/promptrails/langrails/llm/xai"
+	"github.com/promptrails/langrails/llm/zai"
 )
 
 // ProviderName identifies a supported LLM provider.
@@ -36,6 +42,12 @@ const (
 	Cohere     ProviderName = "cohere"
 	Perplexity ProviderName = "perplexity"
 	Ollama     ProviderName = "ollama"
+	Chutes     ProviderName = "chutes"
+	ZAI        ProviderName = "zai"
+	Moonshot   ProviderName = "moonshot"
+	Novita     ProviderName = "novita"
+	DeepInfra  ProviderName = "deepinfra"
+	Friendli   ProviderName = "friendli"
 )
 
 // New creates a new LLM provider by name.
@@ -71,6 +83,18 @@ func New(name ProviderName, apiKey string) (langrails.Provider, error) {
 		return perplexity.New(apiKey), nil
 	case Ollama:
 		return ollama.New(), nil
+	case Chutes:
+		return chutes.New(apiKey), nil
+	case ZAI:
+		return zai.New(apiKey), nil
+	case Moonshot:
+		return moonshot.New(apiKey), nil
+	case Novita:
+		return novita.New(apiKey), nil
+	case DeepInfra:
+		return deepinfra.New(apiKey), nil
+	case Friendli:
+		return friendli.New(apiKey), nil
 	default:
 		return nil, fmt.Errorf("langrails: unknown provider %q", name)
 	}
@@ -90,5 +114,6 @@ func AllProviders() []ProviderName {
 	return []ProviderName{
 		OpenAI, Anthropic, Gemini, DeepSeek, Groq, Fireworks,
 		XAI, OpenRouter, Together, Mistral, Cohere, Perplexity, Ollama,
+		Chutes, ZAI, Moonshot, Novita, DeepInfra, Friendli,
 	}
 }

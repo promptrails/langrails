@@ -31,7 +31,7 @@ go get github.com/promptrails/langrails
 
 ## Features
 
-- **13 providers** — OpenAI, Anthropic, Gemini, DeepSeek, Groq, Fireworks, xAI, OpenRouter, Together, Mistral, Cohere, Perplexity, Ollama
+- **19 providers** — OpenAI, Anthropic, Gemini, DeepSeek, Groq, Fireworks, xAI, OpenRouter, Together, Mistral, Cohere, Perplexity, Ollama, Chutes AI, Z.AI, Moonshot (Kimi), Novita AI, DeepInfra, Friendli AI
 - **Streaming** — Channel-based, idiomatic Go
 - **Tool calling** — Unified interface + automatic tool execution loop
 - **Chain** — Sequential multi-step prompt pipelines

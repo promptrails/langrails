@@ -1,6 +1,6 @@
 # Providers
 
-langrails supports 13 LLM providers through a unified interface.
+langrails supports 19 LLM providers through a unified interface.
 
 ## Using the Registry
 
@@ -14,7 +14,7 @@ provider, err := llm.New(llm.OpenAI, "sk-...")
 provider := llm.MustNew(llm.Anthropic, "sk-ant-...")
 ```
 
-Available constants: `llm.OpenAI`, `llm.Anthropic`, `llm.Gemini`, `llm.DeepSeek`, `llm.Groq`, `llm.Fireworks`, `llm.XAI`, `llm.OpenRouter`, `llm.Together`, `llm.Mistral`, `llm.Cohere`, `llm.Perplexity`, `llm.Ollama`
+Available constants: `llm.OpenAI`, `llm.Anthropic`, `llm.Gemini`, `llm.DeepSeek`, `llm.Groq`, `llm.Fireworks`, `llm.XAI`, `llm.OpenRouter`, `llm.Together`, `llm.Mistral`, `llm.Cohere`, `llm.Perplexity`, `llm.Ollama`, `llm.Chutes`, `llm.ZAI`, `llm.Moonshot`, `llm.Novita`, `llm.DeepInfra`, `llm.Friendli`
 
 For provider-specific options (custom base URL, HTTP client), use the direct import instead.
 
@@ -35,6 +35,12 @@ For provider-specific options (custom base URL, HTTP client), use the direct imp
 | Cohere | `langrails/llm/cohere` | `api.cohere.com` | Bearer token |
 | Perplexity | `langrails/llm/perplexity` | `api.perplexity.ai` | Bearer token |
 | Ollama | `langrails/llm/ollama` | `localhost:11434` | None (local) |
+| Chutes AI | `langrails/llm/chutes` | `llm.chutes.ai` | Bearer token |
+| Z.AI | `langrails/llm/zai` | `api.z.ai` | Bearer token |
+| Moonshot (Kimi) | `langrails/llm/moonshot` | `api.moonshot.ai` | Bearer token |
+| Novita AI | `langrails/llm/novita` | `api.novita.ai` | Bearer token |
+| DeepInfra | `langrails/llm/deepinfra` | `api.deepinfra.com` | Bearer token |
+| Friendli AI | `langrails/llm/friendli` | `api.friendli.ai` | Bearer token |
 
 ## Feature Matrix
 
@@ -47,7 +53,7 @@ For provider-specific options (custom base URL, HTTP client), use the direct imp
 | System prompt | message | separate field | systemInstruction | message |
 | Max tokens default | provider default | 4096 (required) | provider default | provider default |
 
-*Compat = DeepSeek, Groq, Fireworks, xAI, OpenRouter, Together, Mistral, Cohere, Perplexity, Ollama
+*Compat = DeepSeek, Groq, Fireworks, xAI, OpenRouter, Together, Mistral, Cohere, Perplexity, Ollama, Chutes, Z.AI, Moonshot, Novita, DeepInfra, Friendli
 
 ## OpenAI
 
@@ -214,6 +220,68 @@ provider := ollama.New()
 - Default URL: `http://localhost:11434/v1/chat/completions`
 - Custom URL: `ollama.New(ollama.WithBaseURL("http://remote:11434/v1/chat/completions"))`
 - Vision support with llava/bakllava models
+
+## Chutes AI
+
+```go
+import "github.com/promptrails/langrails/llm/chutes"
+
+provider := chutes.New("cpk-...")
+```
+
+**Models**: deepseek-ai/DeepSeek-V3-0324, and other open models hosted on Chutes.
+
+## Z.AI
+
+```go
+import "github.com/promptrails/langrails/llm/zai"
+
+provider := zai.New("your-api-key")
+```
+
+**Models**: glm-5.1 and other GLM-family models from Zhipu AI.
+
+## Moonshot (Kimi)
+
+```go
+import "github.com/promptrails/langrails/llm/moonshot"
+
+provider := moonshot.New("your-api-key")
+```
+
+**Models**: kimi-k2.6 and other Kimi models from Moonshot AI.
+
+**Notes**: API keys are issued on the Moonshot platform; the model family is branded as "Kimi" but the API host and platform name use "moonshot".
+
+## Novita AI
+
+```go
+import "github.com/promptrails/langrails/llm/novita"
+
+provider := novita.New("your-api-key")
+```
+
+**Models**: deepseek/deepseek-r1, meta-llama/llama-3.1-* and other open models served via Novita's GPU cloud.
+
+## DeepInfra
+
+```go
+import "github.com/promptrails/langrails/llm/deepinfra"
+
+provider := deepinfra.New("your-api-token")
+```
+
+**Models**: deepseek-ai/DeepSeek-V3, meta-llama/Meta-Llama-3.1-70B-Instruct, and other open models served by DeepInfra.
+
+## Friendli AI
+
+```go
+import "github.com/promptrails/langrails/llm/friendli"
+
+provider := friendli.New("your-api-key")
+```
+
+**Models**: meta-llama-3.1-8b-instruct and other models on the Friendli serverless endpoint.
 
 ## Custom / Self-Hosted
 
