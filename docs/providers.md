@@ -1,6 +1,6 @@
 # Providers
 
-langrails supports 19 LLM providers through a unified interface.
+langrails supports 24 LLM providers through a unified interface.
 
 ## Using the Registry
 
@@ -14,7 +14,7 @@ provider, err := llm.New(llm.OpenAI, "sk-...")
 provider := llm.MustNew(llm.Anthropic, "sk-ant-...")
 ```
 
-Available constants: `llm.OpenAI`, `llm.Anthropic`, `llm.Gemini`, `llm.DeepSeek`, `llm.Groq`, `llm.Fireworks`, `llm.XAI`, `llm.OpenRouter`, `llm.Together`, `llm.Mistral`, `llm.Cohere`, `llm.Perplexity`, `llm.Ollama`, `llm.Chutes`, `llm.ZAI`, `llm.Moonshot`, `llm.Novita`, `llm.DeepInfra`, `llm.Friendli`
+Available constants: `llm.OpenAI`, `llm.Anthropic`, `llm.Gemini`, `llm.DeepSeek`, `llm.Groq`, `llm.Fireworks`, `llm.XAI`, `llm.OpenRouter`, `llm.Together`, `llm.Mistral`, `llm.Cohere`, `llm.Perplexity`, `llm.Ollama`, `llm.Chutes`, `llm.ZAI`, `llm.Moonshot`, `llm.Novita`, `llm.DeepInfra`, `llm.Friendli`, `llm.Cerebras`, `llm.SambaNova`, `llm.Hyperbolic`, `llm.DashScope`, `llm.HuggingFace`
 
 For provider-specific options (custom base URL, HTTP client), use the direct import instead.
 
@@ -41,6 +41,11 @@ For provider-specific options (custom base URL, HTTP client), use the direct imp
 | Novita AI | `langrails/llm/novita` | `api.novita.ai` | Bearer token |
 | DeepInfra | `langrails/llm/deepinfra` | `api.deepinfra.com` | Bearer token |
 | Friendli AI | `langrails/llm/friendli` | `api.friendli.ai` | Bearer token |
+| Cerebras | `langrails/llm/cerebras` | `api.cerebras.ai` | Bearer token |
+| SambaNova | `langrails/llm/sambanova` | `api.sambanova.ai` | Bearer token |
+| Hyperbolic | `langrails/llm/hyperbolic` | `api.hyperbolic.xyz` | Bearer token |
+| Alibaba DashScope (Qwen) | `langrails/llm/dashscope` | `dashscope-intl.aliyuncs.com` | Bearer token |
+| Hugging Face Router | `langrails/llm/huggingface` | `router.huggingface.co` | Bearer token |
 
 ## Feature Matrix
 
@@ -53,7 +58,7 @@ For provider-specific options (custom base URL, HTTP client), use the direct imp
 | System prompt | message | separate field | systemInstruction | message |
 | Max tokens default | provider default | 4096 (required) | provider default | provider default |
 
-*Compat = DeepSeek, Groq, Fireworks, xAI, OpenRouter, Together, Mistral, Cohere, Perplexity, Ollama, Chutes, Z.AI, Moonshot, Novita, DeepInfra, Friendli
+*Compat = DeepSeek, Groq, Fireworks, xAI, OpenRouter, Together, Mistral, Cohere, Perplexity, Ollama, Chutes, Z.AI, Moonshot, Novita, DeepInfra, Friendli, Cerebras, SambaNova, Hyperbolic, DashScope, Hugging Face Router
 
 ## OpenAI
 
@@ -282,6 +287,66 @@ provider := friendli.New("your-api-key")
 ```
 
 **Models**: meta-llama-3.1-8b-instruct and other models on the Friendli serverless endpoint.
+
+## Cerebras
+
+```go
+import "github.com/promptrails/langrails/llm/cerebras"
+
+provider := cerebras.New("your-api-key")
+```
+
+**Models**: llama3.1-8b, llama3.3-70b, qwen-3-coder-* and other models hosted on Cerebras Inference.
+
+**Notes**: Optimized for very high-throughput inference (often the fastest provider for Llama-class models).
+
+## SambaNova
+
+```go
+import "github.com/promptrails/langrails/llm/sambanova"
+
+provider := sambanova.New("your-api-key")
+```
+
+**Models**: DeepSeek-V3, Meta-Llama-3.x and other models on SambaNova Cloud.
+
+## Hyperbolic
+
+```go
+import "github.com/promptrails/langrails/llm/hyperbolic"
+
+provider := hyperbolic.New("your-api-key")
+```
+
+**Models**: meta-llama/Meta-Llama-3.1-* and other open models served on Hyperbolic's GPU cloud.
+
+## Alibaba DashScope (Qwen)
+
+```go
+import "github.com/promptrails/langrails/llm/dashscope"
+
+provider := dashscope.New("your-api-key")
+```
+
+**Models**: qwen-max, qwen-plus, qwen-turbo, qwen3-* and other Qwen-family models in Alibaba Cloud Model Studio.
+
+**Notes**:
+- Default base URL targets the international (Singapore) endpoint
+- Switch to `https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions` via `WithBaseURL` for the mainland China endpoint
+
+## Hugging Face Router
+
+```go
+import "github.com/promptrails/langrails/llm/huggingface"
+
+provider := huggingface.New("hf_...")
+```
+
+**Models**: addressed as `<owner>/<model>` (e.g. `meta-llama/Meta-Llama-3.1-70B-Instruct`, `deepseek-ai/DeepSeek-V3`). Append `:fastest`, `:cheapest`, `:preferred`, or a specific provider like `:sambanova` to control routing.
+
+**Notes**:
+- Single API key + endpoint that proxies to Cerebras, SambaNova, Together, Fireworks, Groq, Hyperbolic, Novita and other partner providers
+- Useful when you want unified billing and automatic failover across providers
 
 ## Custom / Self-Hosted
 

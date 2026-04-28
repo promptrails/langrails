@@ -1,0 +1,43 @@
+package dashscope
+
+import (
+	"context"
+	"net/http"
+
+	"github.com/promptrails/langrails"
+	"github.com/promptrails/langrails/llm/compat"
+)
+
+const defaultBaseURL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions"
+
+// Provider implements langrails.Provider for Alibaba DashScope's OpenAI-compatible API
+// (Qwen and other Alibaba Cloud Model Studio models).
+type Provider struct{ inner *compat.Provider }
+
+// Option configures the provider.
+type Option func(*compat.Config)
+
+// WithBaseURL sets a custom base URL.
+func WithBaseURL(url string) Option { return func(c *compat.Config) { c.BaseURL = url } }
+
+// WithHTTPClient sets a custom HTTP client.
+func WithHTTPClient(client *http.Client) Option {
+	return func(c *compat.Config) { c.HTTPClient = client }
+}
+
+// New creates a new DashScope provider.
+func New(apiKey string, opts ...Option) *Provider {
+	cfg := compat.Config{Name: "dashscope", BaseURL: defaultBaseURL, APIKey: apiKey}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	return &Provider{inner: compat.New(cfg)}
+}
+
+func (p *Provider) Complete(ctx context.Context, req *langrails.CompletionRequest) (*langrails.CompletionResponse, error) {
+	return p.inner.Complete(ctx, req)
+}
+
+func (p *Provider) Stream(ctx context.Context, req *langrails.CompletionRequest) (<-chan langrails.StreamEvent, error) {
+	return p.inner.Stream(ctx, req)
+}
