@@ -268,3 +268,48 @@ func TestProvider_ToolChoice(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestProvider_Reasoning(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if req.GenerationConfig == nil || req.GenerationConfig.ThinkingConfig == nil {
+			t.Fatalf("expected thinkingConfig, got %+v", req.GenerationConfig)
+		}
+		tc := req.GenerationConfig.ThinkingConfig
+		if !tc.IncludeThoughts {
+			t.Error("expected includeThoughts=true")
+		}
+		if tc.ThinkingBudget == nil || *tc.ThinkingBudget != 8192 {
+			t.Errorf("thinkingBudget = %v, want 8192 (medium)", tc.ThinkingBudget)
+		}
+		resp := response{
+			Candidates: []candidate{{Content: content{Parts: []part{
+				{Text: "reasoning here", Thought: true},
+				{Text: "final answer"},
+			}}, FinishReason: "STOP"}},
+			UsageMetadata: &usageMetadata{PromptTokenCount: 5, CandidatesTokenCount: 10, TotalTokenCount: 15, ThoughtsTokenCount: 7},
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	provider := New("key", WithBaseURL(server.URL))
+	resp, err := provider.Complete(context.Background(), &langrails.CompletionRequest{
+		Model:           "gemini-2.5-pro",
+		Messages:        []langrails.Message{{Role: "user", Content: "hi"}},
+		ReasoningEffort: langrails.ReasoningMedium,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Thinking != "reasoning here" {
+		t.Errorf("Thinking = %q", resp.Thinking)
+	}
+	if resp.Content != "final answer" {
+		t.Errorf("Content = %q", resp.Content)
+	}
+	if resp.Usage.ReasoningTokens != 7 {
+		t.Errorf("ReasoningTokens = %d, want 7", resp.Usage.ReasoningTokens)
+	}
+}

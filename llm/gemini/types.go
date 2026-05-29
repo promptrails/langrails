@@ -28,6 +28,7 @@ type content struct {
 
 type part struct {
 	Text             string            `json:"text,omitempty"`
+	Thought          bool              `json:"thought,omitempty"`
 	FunctionCall     *functionCall     `json:"functionCall,omitempty"`
 	FunctionResponse *functionResponse `json:"functionResponse,omitempty"`
 }
@@ -51,6 +52,12 @@ type generationConfig struct {
 	StopSequences    []string         `json:"stopSequences,omitempty"`
 	ResponseMIMEType string           `json:"responseMimeType,omitempty"`
 	ResponseSchema   *json.RawMessage `json:"responseSchema,omitempty"`
+	ThinkingConfig   *thinkingConfig  `json:"thinkingConfig,omitempty"`
+}
+
+type thinkingConfig struct {
+	ThinkingBudget  *int `json:"thinkingBudget,omitempty"`
+	IncludeThoughts bool `json:"includeThoughts,omitempty"`
 }
 
 type toolDeclaration struct {
@@ -79,6 +86,7 @@ type usageMetadata struct {
 	PromptTokenCount     int `json:"promptTokenCount"`
 	CandidatesTokenCount int `json:"candidatesTokenCount"`
 	TotalTokenCount      int `json:"totalTokenCount"`
+	ThoughtsTokenCount   int `json:"thoughtsTokenCount,omitempty"`
 }
 
 // Error response

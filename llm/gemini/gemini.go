@@ -161,9 +161,16 @@ func (p *Provider) readStream(body io.ReadCloser, ch chan<- langrails.StreamEven
 		candidate := resp.Candidates[0]
 		for _, part := range candidate.Content.Parts {
 			if part.Text != "" {
-				ch <- langrails.StreamEvent{
-					Type:    langrails.EventContent,
-					Content: part.Text,
+				if part.Thought {
+					ch <- langrails.StreamEvent{
+						Type:      langrails.EventReasoning,
+						Reasoning: part.Text,
+					}
+				} else {
+					ch <- langrails.StreamEvent{
+						Type:    langrails.EventContent,
+						Content: part.Text,
+					}
 				}
 			}
 			if part.FunctionCall != nil {
@@ -193,6 +200,7 @@ func (p *Provider) readStream(body io.ReadCloser, ch chan<- langrails.StreamEven
 						PromptTokens:     resp.UsageMetadata.PromptTokenCount,
 						CompletionTokens: resp.UsageMetadata.CandidatesTokenCount,
 						TotalTokens:      resp.UsageMetadata.TotalTokenCount,
+						ReasoningTokens:  resp.UsageMetadata.ThoughtsTokenCount,
 					},
 				}
 			}
@@ -243,6 +251,24 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest) ([]byte, e
 		r.GenerationConfig.ResponseSchema = &schema
 	}
 
+	// Reasoning / thinking (Gemini 2.5+)
+	if req.Thinking || req.ReasoningEffort != "" {
+		if r.GenerationConfig == nil {
+			r.GenerationConfig = &generationConfig{}
+		}
+		tc := &thinkingConfig{IncludeThoughts: true}
+		budget := 0
+		if req.ThinkingBudget != nil {
+			budget = *req.ThinkingBudget
+		} else {
+			budget = req.ReasoningEffort.BudgetTokens()
+		}
+		if budget > 0 {
+			tc.ThinkingBudget = &budget
+		}
+		r.GenerationConfig.ThinkingConfig = tc
+	}
+
 	if len(req.Tools) > 0 {
 		r.Tools = convertTools(req.Tools)
 	}
@@ -284,6 +310,7 @@ func (p *Provider) parseResponse(resp *response) *langrails.CompletionResponse {
 			PromptTokens:     resp.UsageMetadata.PromptTokenCount,
 			CompletionTokens: resp.UsageMetadata.CandidatesTokenCount,
 			TotalTokens:      resp.UsageMetadata.TotalTokenCount,
+			ReasoningTokens:  resp.UsageMetadata.ThoughtsTokenCount,
 		}
 	}
 
@@ -293,7 +320,11 @@ func (p *Provider) parseResponse(resp *response) *langrails.CompletionResponse {
 
 		for _, part := range candidate.Content.Parts {
 			if part.Text != "" {
-				result.Content += part.Text
+				if part.Thought {
+					result.Thinking += part.Text
+				} else {
+					result.Content += part.Text
+				}
 			}
 			if part.FunctionCall != nil {
 				args, _ := json.Marshal(part.FunctionCall.Args)
