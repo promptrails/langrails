@@ -246,8 +246,34 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest) ([]byte, e
 	if len(req.Tools) > 0 {
 		r.Tools = convertTools(req.Tools)
 	}
+	if tc := convertToolChoice(req.ToolChoice); tc != nil {
+		r.ToolConfig = tc
+	}
 
 	return json.Marshal(r)
+}
+
+// convertToolChoice maps the unified ToolChoice to Gemini's functionCallingConfig.
+// Returns nil when no choice is set.
+func convertToolChoice(tc *langrails.ToolChoice) *toolConfig {
+	if tc == nil {
+		return nil
+	}
+	switch tc.Mode {
+	case langrails.ToolChoiceAuto:
+		return &toolConfig{FunctionCallingConfig: functionCallingConfig{Mode: "AUTO"}}
+	case langrails.ToolChoiceNone:
+		return &toolConfig{FunctionCallingConfig: functionCallingConfig{Mode: "NONE"}}
+	case langrails.ToolChoiceRequired:
+		return &toolConfig{FunctionCallingConfig: functionCallingConfig{Mode: "ANY"}}
+	case langrails.ToolChoiceTool:
+		return &toolConfig{FunctionCallingConfig: functionCallingConfig{
+			Mode:                 "ANY",
+			AllowedFunctionNames: []string{tc.Name},
+		}}
+	default:
+		return nil
+	}
 }
 
 func (p *Provider) parseResponse(resp *response) *langrails.CompletionResponse {

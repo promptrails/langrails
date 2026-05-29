@@ -240,3 +240,31 @@ func TestProvider_Complete_WithAllParams(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestProvider_ToolChoice(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		fc := req.ToolConfig
+		if fc == nil || fc.FunctionCallingConfig.Mode != "ANY" {
+			t.Fatalf("toolConfig = %+v", fc)
+		}
+		if len(fc.FunctionCallingConfig.AllowedFunctionNames) != 1 || fc.FunctionCallingConfig.AllowedFunctionNames[0] != "lookup" {
+			t.Errorf("allowed names = %+v", fc.FunctionCallingConfig.AllowedFunctionNames)
+		}
+		resp := response{Candidates: []candidate{{Content: content{Parts: []part{{Text: "ok"}}}, FinishReason: "STOP"}}}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	provider := New("key", WithBaseURL(server.URL))
+	_, err := provider.Complete(context.Background(), &langrails.CompletionRequest{
+		Model:      "gemini-2.0-flash",
+		Messages:   []langrails.Message{{Role: "user", Content: "hi"}},
+		Tools:      []langrails.ToolDefinition{{Name: "lookup", Parameters: json.RawMessage(`{"type":"object"}`)}},
+		ToolChoice: langrails.ForceTool("lookup"),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

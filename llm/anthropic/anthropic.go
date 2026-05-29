@@ -256,7 +256,8 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream boo
 		r.Tools = convertTools(req.Tools)
 	}
 
-	// Structured output: define schema as a tool and force the model to use it
+	// Structured output: define schema as a tool and force the model to use it.
+	// Structured output takes precedence over a user-supplied ToolChoice.
 	if req.OutputSchema != nil {
 		r.Tools = append(r.Tools, tool{
 			Name:        "structured_output",
@@ -264,9 +265,31 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream boo
 			InputSchema: json.RawMessage(*req.OutputSchema),
 		})
 		r.ToolChoice = &toolChoice{Type: "tool", Name: "structured_output"}
+	} else if tc := convertToolChoice(req.ToolChoice); tc != nil {
+		r.ToolChoice = tc
 	}
 
 	return json.Marshal(r)
+}
+
+// convertToolChoice maps the unified ToolChoice to Anthropic's tool_choice.
+// Returns nil when no choice is set.
+func convertToolChoice(tc *langrails.ToolChoice) *toolChoice {
+	if tc == nil {
+		return nil
+	}
+	switch tc.Mode {
+	case langrails.ToolChoiceAuto:
+		return &toolChoice{Type: "auto"}
+	case langrails.ToolChoiceNone:
+		return &toolChoice{Type: "none"}
+	case langrails.ToolChoiceRequired:
+		return &toolChoice{Type: "any"}
+	case langrails.ToolChoiceTool:
+		return &toolChoice{Type: "tool", Name: tc.Name}
+	default:
+		return nil
+	}
 }
 
 func (p *Provider) parseResponse(resp *response) *langrails.CompletionResponse {

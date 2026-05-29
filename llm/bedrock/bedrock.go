@@ -304,14 +304,37 @@ func buildRequestBody(req *langrails.CompletionRequest) ([]byte, error) {
 		}})
 	}
 
-	if len(tools) > 0 {
+	// ToolChoiceNone forbids tool calls; Converse has no "none", so we omit the
+	// tool config entirely (the model can't call what it isn't given).
+	noTools := req.OutputSchema == nil && req.ToolChoice != nil && req.ToolChoice.Mode == langrails.ToolChoiceNone
+
+	if len(tools) > 0 && !noTools {
 		r.ToolConfig = &toolConfig{Tools: tools}
-		if req.OutputSchema != nil {
+		switch {
+		case req.OutputSchema != nil:
 			r.ToolConfig.ToolChoice = &toolChoice{Tool: &toolChoiceName{Name: "structured_output"}}
+		default:
+			r.ToolConfig.ToolChoice = convertToolChoice(req.ToolChoice)
 		}
 	}
 
 	return json.Marshal(r)
+}
+
+// convertToolChoice maps the unified ToolChoice to Bedrock Converse's toolChoice.
+// Converse supports auto/any/tool (no "none"); auto returns nil to use the default.
+func convertToolChoice(tc *langrails.ToolChoice) *toolChoice {
+	if tc == nil {
+		return nil
+	}
+	switch tc.Mode {
+	case langrails.ToolChoiceRequired:
+		return &toolChoice{Any: &struct{}{}}
+	case langrails.ToolChoiceTool:
+		return &toolChoice{Tool: &toolChoiceName{Name: tc.Name}}
+	default:
+		return nil
+	}
 }
 
 // buildSystem collects the system prompt and any system-role messages into

@@ -249,3 +249,54 @@ func frame(headers map[string]string, payload []byte) []byte {
 	buf.Write([]byte{0, 0, 0, 0})
 	return buf.Bytes()
 }
+
+func TestProvider_ToolChoice(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if req.ToolConfig == nil || req.ToolConfig.ToolChoice == nil ||
+			req.ToolConfig.ToolChoice.Tool == nil || req.ToolConfig.ToolChoice.Tool.Name != "lookup" {
+			t.Errorf("toolChoice = %+v", req.ToolConfig)
+		}
+		resp := response{StopReason: "tool_use"}
+		resp.Output.Message.Content = []responseContentBlock{{Text: "ok"}}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	p := testProvider(server.URL)
+	_, err := p.Complete(context.Background(), &langrails.CompletionRequest{
+		Model:      "anthropic.claude",
+		Messages:   []langrails.Message{{Role: "user", Content: "hi"}},
+		Tools:      []langrails.ToolDefinition{{Name: "lookup", Parameters: json.RawMessage(`{"type":"object"}`)}},
+		ToolChoice: langrails.ForceTool("lookup"),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestProvider_ToolChoiceNoneOmitsToolConfig(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if req.ToolConfig != nil {
+			t.Errorf("expected no toolConfig for ToolChoiceNone, got %+v", req.ToolConfig)
+		}
+		resp := response{StopReason: "end_turn"}
+		resp.Output.Message.Content = []responseContentBlock{{Text: "ok"}}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	p := testProvider(server.URL)
+	_, err := p.Complete(context.Background(), &langrails.CompletionRequest{
+		Model:      "anthropic.claude",
+		Messages:   []langrails.Message{{Role: "user", Content: "hi"}},
+		Tools:      []langrails.ToolDefinition{{Name: "lookup", Parameters: json.RawMessage(`{"type":"object"}`)}},
+		ToolChoice: langrails.NoToolChoice(),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

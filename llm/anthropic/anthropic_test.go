@@ -280,3 +280,27 @@ func TestProvider_WithHTTPClient(t *testing.T) {
 		t.Fatal("expected non-nil provider")
 	}
 }
+
+func TestProvider_ToolChoice(t *testing.T) {
+	server := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if req.ToolChoice == nil || req.ToolChoice.Type != "tool" || req.ToolChoice.Name != "lookup" {
+			t.Errorf("tool_choice = %+v", req.ToolChoice)
+		}
+		resp := response{Content: []contentBlock{{Type: "text", Text: "ok"}}, StopReason: "end_turn"}
+		_ = json.NewEncoder(w).Encode(resp)
+	})
+	defer server.Close()
+
+	p := New("key", WithBaseURL(server.URL))
+	_, err := p.Complete(context.Background(), &langrails.CompletionRequest{
+		Model:      "claude",
+		Messages:   []langrails.Message{{Role: "user", Content: "hi"}},
+		Tools:      []langrails.ToolDefinition{{Name: "lookup", Parameters: json.RawMessage(`{"type":"object"}`)}},
+		ToolChoice: langrails.ForceTool("lookup"),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

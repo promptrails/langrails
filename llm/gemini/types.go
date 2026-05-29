@@ -9,6 +9,16 @@ type request struct {
 	SystemInstruction *content          `json:"systemInstruction,omitempty"`
 	GenerationConfig  *generationConfig `json:"generationConfig,omitempty"`
 	Tools             []toolDeclaration `json:"tools,omitempty"`
+	ToolConfig        *toolConfig       `json:"toolConfig,omitempty"`
+}
+
+type toolConfig struct {
+	FunctionCallingConfig functionCallingConfig `json:"functionCallingConfig"`
+}
+
+type functionCallingConfig struct {
+	Mode                 string   `json:"mode"` // AUTO, ANY, NONE
+	AllowedFunctionNames []string `json:"allowedFunctionNames,omitempty"`
 }
 
 type content struct {
