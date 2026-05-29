@@ -167,6 +167,13 @@ func (p *Provider) readStream(body io.ReadCloser, ch chan<- langrails.StreamEven
 				continue
 			}
 			switch se.Delta.Type {
+			case "thinking_delta":
+				if se.Delta.Thinking != "" {
+					ch <- langrails.StreamEvent{
+						Type:      langrails.EventReasoning,
+						Reasoning: se.Delta.Thinking,
+					}
+				}
 			case "text_delta":
 				if se.Delta.Text != "" {
 					ch <- langrails.StreamEvent{
@@ -243,11 +250,14 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream boo
 		r.Stop = req.Stop
 	}
 
-	// Extended thinking
-	if req.Thinking {
+	// Extended thinking. Enabled by Thinking or an explicit ReasoningEffort.
+	// Budget precedence: explicit ThinkingBudget > effort-derived budget > default.
+	if req.Thinking || req.ReasoningEffort != "" {
 		budget := 10000 // default
 		if req.ThinkingBudget != nil {
 			budget = *req.ThinkingBudget
+		} else if b := req.ReasoningEffort.BudgetTokens(); b > 0 {
+			budget = b
 		}
 		r.Thinking = &thinking{Type: "enabled", BudgetTokens: budget}
 	}

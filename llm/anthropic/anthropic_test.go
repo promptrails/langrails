@@ -304,3 +304,70 @@ func TestProvider_ToolChoice(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestProvider_ReasoningEffortEnablesThinking(t *testing.T) {
+	server := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if req.Thinking == nil || req.Thinking.Type != "enabled" {
+			t.Fatalf("thinking = %+v", req.Thinking)
+		}
+		if req.Thinking.BudgetTokens != 16384 {
+			t.Errorf("budget = %d, want 16384 (high)", req.Thinking.BudgetTokens)
+		}
+		resp := response{Content: []contentBlock{{Type: "text", Text: "ok"}}, StopReason: "end_turn"}
+		_ = json.NewEncoder(w).Encode(resp)
+	})
+	defer server.Close()
+
+	p := New("key", WithBaseURL(server.URL))
+	_, err := p.Complete(context.Background(), &langrails.CompletionRequest{
+		Model:           "claude",
+		Messages:        []langrails.Message{{Role: "user", Content: "hi"}},
+		ReasoningEffort: langrails.ReasoningHigh,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestProvider_Stream_Thinking(t *testing.T) {
+	server := newMockServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		flusher := w.(http.Flusher)
+		events := []string{
+			`{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"let me think"}}`,
+			`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"answer"}}`,
+			`{"type":"message_stop"}`,
+		}
+		for _, e := range events {
+			_, _ = w.Write([]byte("data: " + e + "\n\n"))
+			flusher.Flush()
+		}
+	})
+	defer server.Close()
+
+	p := New("key", WithBaseURL(server.URL))
+	ch, err := p.Stream(context.Background(), &langrails.CompletionRequest{
+		Model:           "claude",
+		Messages:        []langrails.Message{{Role: "user", Content: "hi"}},
+		ReasoningEffort: langrails.ReasoningMedium,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	var reasoning, content string
+	for ev := range ch {
+		switch ev.Type {
+		case langrails.EventReasoning:
+			reasoning += ev.Reasoning
+		case langrails.EventContent:
+			content += ev.Content
+		}
+	}
+	if reasoning != "let me think" {
+		t.Errorf("reasoning = %q", reasoning)
+	}
+	if content != "answer" {
+		t.Errorf("content = %q", content)
+	}
+}
