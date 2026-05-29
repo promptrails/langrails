@@ -26,6 +26,10 @@ for _, c := range resp.Citations {
 `UserLocation`) are best-effort: each provider honors the subset it supports and
 ignores the rest. Pass `langrails.WebSearch(nil)` for provider defaults.
 
+On Anthropic, `AllowedDomains`/`BlockedDomains` map to the web search tool's
+`allowed_domains`/`blocked_domains` (don't set both), and `UserLocation` maps to
+an approximate `user_location` country.
+
 `ServerTools` is distinct from `Tools`: `Tools` are functions **you** execute and
 return results for; `ServerTools` run **inside the provider**.
 

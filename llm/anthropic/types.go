@@ -59,7 +59,16 @@ type tool struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description,omitempty"`
 	InputSchema json.RawMessage `json:"input_schema,omitempty"`
-	MaxUses     int             `json:"max_uses,omitempty"` // web search: cap searches per request
+	// Web search server tool options.
+	MaxUses        int           `json:"max_uses,omitempty"`
+	AllowedDomains []string      `json:"allowed_domains,omitempty"`
+	BlockedDomains []string      `json:"blocked_domains,omitempty"`
+	UserLocation   *userLocation `json:"user_location,omitempty"`
+}
+
+type userLocation struct {
+	Type    string `json:"type"` // "approximate"
+	Country string `json:"country,omitempty"`
 }
 
 type cacheControl struct {

@@ -284,8 +284,15 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream boo
 	for _, st := range req.ServerTools {
 		if st.Type == langrails.ServerToolWebSearch {
 			wt := tool{Type: "web_search_20250305", Name: "web_search"}
-			if st.WebSearch != nil && st.WebSearch.MaxUses > 0 {
-				wt.MaxUses = st.WebSearch.MaxUses
+			if opts := st.WebSearch; opts != nil {
+				if opts.MaxUses > 0 {
+					wt.MaxUses = opts.MaxUses
+				}
+				wt.AllowedDomains = opts.AllowedDomains
+				wt.BlockedDomains = opts.BlockedDomains
+				if opts.UserLocation != "" {
+					wt.UserLocation = &userLocation{Type: "approximate", Country: opts.UserLocation}
+				}
 			}
 			r.Tools = append(r.Tools, wt)
 		}

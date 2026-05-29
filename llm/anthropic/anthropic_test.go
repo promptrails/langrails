@@ -337,12 +337,22 @@ func TestProvider_WebSearchAndCitations(t *testing.T) {
 		_ = json.NewDecoder(r.Body).Decode(&req)
 		var found bool
 		for _, tl := range req.Tools {
-			if tl.Type == "web_search_20250305" && tl.MaxUses == 3 {
-				found = true
+			if tl.Type != "web_search_20250305" {
+				continue
+			}
+			found = true
+			if tl.MaxUses != 3 {
+				t.Errorf("max_uses = %d, want 3", tl.MaxUses)
+			}
+			if len(tl.AllowedDomains) != 1 || tl.AllowedDomains[0] != "example.com" {
+				t.Errorf("allowed_domains = %+v", tl.AllowedDomains)
+			}
+			if tl.UserLocation == nil || tl.UserLocation.Type != "approximate" || tl.UserLocation.Country != "US" {
+				t.Errorf("user_location = %+v", tl.UserLocation)
 			}
 		}
 		if !found {
-			t.Errorf("expected web_search tool with max_uses=3, got %+v", req.Tools)
+			t.Errorf("expected web_search tool, got %+v", req.Tools)
 		}
 		resp := response{
 			Content: []contentBlock{{Type: "text", Text: "result", Citations: []anthropicCitation{
@@ -356,9 +366,13 @@ func TestProvider_WebSearchAndCitations(t *testing.T) {
 
 	p := New("key", WithBaseURL(server.URL))
 	resp, err := p.Complete(context.Background(), &langrails.CompletionRequest{
-		Model:       "claude",
-		Messages:    []langrails.Message{{Role: "user", Content: "search"}},
-		ServerTools: []langrails.ServerTool{langrails.WebSearch(&langrails.WebSearchOptions{MaxUses: 3})},
+		Model:    "claude",
+		Messages: []langrails.Message{{Role: "user", Content: "search"}},
+		ServerTools: []langrails.ServerTool{langrails.WebSearch(&langrails.WebSearchOptions{
+			MaxUses:        3,
+			AllowedDomains: []string{"example.com"},
+			UserLocation:   "US",
+		})},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
