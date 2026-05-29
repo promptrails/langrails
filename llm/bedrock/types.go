@@ -137,10 +137,6 @@ type streamContentBlockDelta struct {
 	ContentBlockIndex int `json:"contentBlockIndex"`
 }
 
-type streamMessageStop struct {
-	StopReason string `json:"stopReason"`
-}
-
 type streamMetadata struct {
 	Usage usage `json:"usage"`
 }
