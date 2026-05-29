@@ -567,6 +567,55 @@ func TestProvider_Stream_Reasoning(t *testing.T) {
 	}
 }
 
+func TestProvider_WebSearchAndCitations(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if req.WebSearchOptions == nil {
+			t.Error("expected web_search_options to be set")
+		}
+		resp := response{
+			Choices: []choice{{
+				Message: choiceMessage{
+					Content: "Per recent news...",
+					Annotations: []annotation{{
+						Type: "url_citation",
+						URLCitation: &struct {
+							URL        string `json:"url"`
+							Title      string `json:"title"`
+							StartIndex int    `json:"start_index"`
+							EndIndex   int    `json:"end_index"`
+						}{URL: "https://a.com", Title: "A", StartIndex: 0, EndIndex: 5},
+					}},
+				},
+				FinishReason: "stop",
+			}},
+			Citations: []string{"https://b.com"},
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	provider := New(Config{Name: "test", BaseURL: server.URL, APIKey: "key"})
+	resp, err := provider.Complete(context.Background(), &langrails.CompletionRequest{
+		Model:       "gpt-4o-search-preview",
+		Messages:    []langrails.Message{{Role: "user", Content: "latest news?"}},
+		ServerTools: []langrails.ServerTool{langrails.WebSearch(nil)},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resp.Citations) != 2 {
+		t.Fatalf("expected 2 citations, got %d (%+v)", len(resp.Citations), resp.Citations)
+	}
+	if resp.Citations[0].URL != "https://a.com" || resp.Citations[0].Title != "A" {
+		t.Errorf("citation[0] = %+v", resp.Citations[0])
+	}
+	if resp.Citations[1].URL != "https://b.com" {
+		t.Errorf("citation[1] = %+v", resp.Citations[1])
+	}
+}
+
 // jsonEqual compares two values by their JSON encodings (order-independent for objects).
 func jsonEqual(a, b interface{}) bool {
 	ab, _ := json.Marshal(a)

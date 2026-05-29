@@ -5,20 +5,27 @@ import "encoding/json"
 // Request types
 
 type request struct {
-	Model            string          `json:"model"`
-	Messages         []message       `json:"messages"`
-	Temperature      *float64        `json:"temperature,omitempty"`
-	MaxTokens        *int            `json:"max_tokens,omitempty"`
-	TopP             *float64        `json:"top_p,omitempty"`
-	FrequencyPenalty *float64        `json:"frequency_penalty,omitempty"`
-	PresencePenalty  *float64        `json:"presence_penalty,omitempty"`
-	Stop             []string        `json:"stop,omitempty"`
-	Seed             *int            `json:"seed,omitempty"`
-	Stream           bool            `json:"stream"`
-	Tools            []tool          `json:"tools,omitempty"`
-	ToolChoice       interface{}     `json:"tool_choice,omitempty"` // string or toolChoiceFunction
-	ResponseFormat   *responseFormat `json:"response_format,omitempty"`
-	Reasoning        *reasoningParam `json:"reasoning,omitempty"`
+	Model            string            `json:"model"`
+	Messages         []message         `json:"messages"`
+	Temperature      *float64          `json:"temperature,omitempty"`
+	MaxTokens        *int              `json:"max_tokens,omitempty"`
+	TopP             *float64          `json:"top_p,omitempty"`
+	FrequencyPenalty *float64          `json:"frequency_penalty,omitempty"`
+	PresencePenalty  *float64          `json:"presence_penalty,omitempty"`
+	Stop             []string          `json:"stop,omitempty"`
+	Seed             *int              `json:"seed,omitempty"`
+	Stream           bool              `json:"stream"`
+	Tools            []tool            `json:"tools,omitempty"`
+	ToolChoice       interface{}       `json:"tool_choice,omitempty"` // string or toolChoiceFunction
+	ResponseFormat   *responseFormat   `json:"response_format,omitempty"`
+	Reasoning        *reasoningParam   `json:"reasoning,omitempty"`
+	WebSearchOptions *webSearchOptions `json:"web_search_options,omitempty"`
+}
+
+// webSearchOptions enables OpenAI-style built-in web search. The empty form
+// uses provider defaults; SearchContextSize is optional ("low"/"medium"/"high").
+type webSearchOptions struct {
+	SearchContextSize string `json:"search_context_size,omitempty"`
 }
 
 // toolChoiceFunction is the object form of tool_choice that forces a named tool.
@@ -90,6 +97,8 @@ type response struct {
 	Model   string   `json:"model"`
 	Choices []choice `json:"choices"`
 	Usage   usage    `json:"usage"`
+	// Citations is the Perplexity-style top-level list of source URLs.
+	Citations []string `json:"citations,omitempty"`
 }
 
 type choice struct {
@@ -103,8 +112,19 @@ type choiceMessage struct {
 	ToolCalls []toolCall `json:"tool_calls,omitempty"`
 	// Reasoning text: providers diverge on the field name (DeepSeek/most use
 	// reasoning_content; OpenRouter uses reasoning).
-	ReasoningContent string `json:"reasoning_content,omitempty"`
-	Reasoning        string `json:"reasoning,omitempty"`
+	ReasoningContent string       `json:"reasoning_content,omitempty"`
+	Reasoning        string       `json:"reasoning,omitempty"`
+	Annotations      []annotation `json:"annotations,omitempty"` // OpenAI url_citation annotations
+}
+
+type annotation struct {
+	Type        string `json:"type"`
+	URLCitation *struct {
+		URL        string `json:"url"`
+		Title      string `json:"title"`
+		StartIndex int    `json:"start_index"`
+		EndIndex   int    `json:"end_index"`
+	} `json:"url_citation,omitempty"`
 }
 
 type usage struct {

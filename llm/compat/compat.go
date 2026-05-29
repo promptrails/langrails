@@ -276,6 +276,13 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream boo
 		oaiReq.ToolChoice = tc
 	}
 
+	// Built-in web search (OpenAI web_search_options). Other compat providers
+	// (e.g. Perplexity sonar) search implicitly by model and ignore this field
+	// but still return citations, which are parsed in parseResponse.
+	if hasWebSearch(req.ServerTools) {
+		oaiReq.WebSearchOptions = &webSearchOptions{}
+	}
+
 	switch {
 	case req.OutputSchema != nil:
 		schema := enforceStrictSchema(*req.OutputSchema)
@@ -364,9 +371,36 @@ func (p *Provider) parseResponse(resp *response) *langrails.CompletionResponse {
 				Arguments: tc.Function.Arguments,
 			})
 		}
+
+		// OpenAI-style inline url_citation annotations.
+		for _, a := range choice.Message.Annotations {
+			if a.Type == "url_citation" && a.URLCitation != nil {
+				result.Citations = append(result.Citations, langrails.Citation{
+					URL:        a.URLCitation.URL,
+					Title:      a.URLCitation.Title,
+					StartIndex: a.URLCitation.StartIndex,
+					EndIndex:   a.URLCitation.EndIndex,
+				})
+			}
+		}
+	}
+
+	// Perplexity-style top-level citation URLs.
+	for _, u := range resp.Citations {
+		result.Citations = append(result.Citations, langrails.Citation{URL: u})
 	}
 
 	return result
+}
+
+// hasWebSearch reports whether the server tools include web search.
+func hasWebSearch(tools []langrails.ServerTool) bool {
+	for _, st := range tools {
+		if st.Type == langrails.ServerToolWebSearch {
+			return true
+		}
+	}
+	return false
 }
 
 func convertMessages(req *langrails.CompletionRequest) []message {
