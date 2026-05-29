@@ -7,6 +7,13 @@ const (
 	// EventContent indicates a text content chunk.
 	EventContent EventType = "content"
 
+	// EventReasoning indicates a reasoning/thinking text chunk. Emitted before
+	// the corresponding EventContent chunks by providers that stream reasoning.
+	EventReasoning EventType = "reasoning"
+
+	// EventCitation indicates a citation/source was emitted during streaming.
+	EventCitation EventType = "citation"
+
 	// EventToolCall indicates a tool/function call event.
 	EventToolCall EventType = "tool_call"
 
@@ -24,6 +31,12 @@ type StreamEvent struct {
 
 	// Content contains the text chunk for EventContent events.
 	Content string
+
+	// Reasoning contains the reasoning/thinking text chunk for EventReasoning events.
+	Reasoning string
+
+	// Citation contains the source for EventCitation events.
+	Citation *Citation
 
 	// ToolCall contains tool call data for EventToolCall events.
 	ToolCall *ToolCall

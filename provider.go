@@ -77,6 +77,33 @@ type CompletionRequest struct {
 	// ThinkingBudget limits the number of thinking tokens (Anthropic only).
 	// Ignored when Thinking is false.
 	ThinkingBudget *int
+
+	// ReasoningEffort selects reasoning intensity in a provider-agnostic way
+	// ("minimal", "low", "medium", "high"). Empty means off / provider default.
+	// When set, it takes precedence over Thinking/ThinkingBudget. Providers that
+	// use a token budget (Anthropic, Gemini) derive one from the effort level.
+	ReasoningEffort ReasoningEffort
+
+	// ToolChoice controls whether and which tool the model must call. When nil,
+	// the provider default (usually "auto") applies. Ignored by providers that
+	// don't support tool choice. When OutputSchema is set, structured output
+	// takes precedence over ToolChoice.
+	ToolChoice *ToolChoice
+
+	// ServerTools enables provider-hosted tools that the provider executes
+	// itself (e.g. web search), as opposed to Tools, which the caller executes.
+	// Support varies by provider; unsupported server tools are ignored.
+	ServerTools []ServerTool
+
+	// ResponseFormat selects output formatting. Empty means plain text.
+	// ResponseFormatJSONObject requests JSON mode without a schema. When
+	// OutputSchema is set it takes precedence (schema-constrained JSON).
+	ResponseFormat ResponseFormatType
+
+	// CacheControl enables the provider's prompt caching for eligible content
+	// (e.g. Anthropic cache_control breakpoints, Bedrock cachePoint). Providers
+	// with implicit caching ignore this but still report cached tokens in Usage.
+	CacheControl bool
 }
 
 // CompletionResponse represents the response from an LLM provider.
@@ -93,6 +120,10 @@ type CompletionResponse struct {
 	// When non-empty, the caller should execute the tools and send the
 	// results back in a follow-up request.
 	ToolCalls []ToolCall
+
+	// Citations contains sources returned by provider-native web search or
+	// grounding. Empty when no server-side search was used.
+	Citations []Citation
 
 	// Usage contains token usage statistics for this request.
 	Usage TokenUsage
@@ -115,4 +146,16 @@ type TokenUsage struct {
 
 	// TotalTokens is the sum of PromptTokens and CompletionTokens.
 	TotalTokens int
+
+	// CachedTokens is the number of prompt tokens served from cache (read hits).
+	// Reported by providers with prompt caching; 0 otherwise.
+	CachedTokens int
+
+	// CacheCreationTokens is the number of tokens written to the cache by this
+	// request. Reported by Anthropic/Bedrock; 0 otherwise.
+	CacheCreationTokens int
+
+	// ReasoningTokens is the number of tokens spent on reasoning/thinking.
+	// Most providers count these within CompletionTokens; 0 when unavailable.
+	ReasoningTokens int
 }
