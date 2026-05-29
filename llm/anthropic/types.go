@@ -35,14 +35,16 @@ type message struct {
 }
 
 type contentBlock struct {
-	Type      string          `json:"type"`
-	Text      string          `json:"text,omitempty"`
-	ID        string          `json:"id,omitempty"`
-	Name      string          `json:"name,omitempty"`
-	Input     json.RawMessage `json:"input,omitempty"`
-	ToolUseID string          `json:"tool_use_id,omitempty"`
-	Content   string          `json:"content,omitempty"`
-	Source    *imageSource    `json:"source,omitempty"`
+	Type         string              `json:"type"`
+	Text         string              `json:"text,omitempty"`
+	ID           string              `json:"id,omitempty"`
+	Name         string              `json:"name,omitempty"`
+	Input        json.RawMessage     `json:"input,omitempty"`
+	ToolUseID    string              `json:"tool_use_id,omitempty"`
+	Content      string              `json:"content,omitempty"`
+	Source       *imageSource        `json:"source,omitempty"`
+	Citations    []anthropicCitation `json:"citations,omitempty"`
+	CacheControl *cacheControl       `json:"cache_control,omitempty"`
 }
 
 type imageSource struct {
@@ -53,9 +55,22 @@ type imageSource struct {
 }
 
 type tool struct {
+	Type        string          `json:"type,omitempty"` // set for server tools (e.g. web_search_20250305)
 	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	InputSchema json.RawMessage `json:"input_schema"`
+	Description string          `json:"description,omitempty"`
+	InputSchema json.RawMessage `json:"input_schema,omitempty"`
+	MaxUses     int             `json:"max_uses,omitempty"` // web search: cap searches per request
+}
+
+type cacheControl struct {
+	Type string `json:"type"` // "ephemeral"
+}
+
+type anthropicCitation struct {
+	Type      string `json:"type"`
+	URL       string `json:"url,omitempty"`
+	Title     string `json:"title,omitempty"`
+	CitedText string `json:"cited_text,omitempty"`
 }
 
 // Response types
@@ -69,8 +84,10 @@ type response struct {
 }
 
 type usage struct {
-	InputTokens  int `json:"input_tokens"`
-	OutputTokens int `json:"output_tokens"`
+	InputTokens              int `json:"input_tokens"`
+	OutputTokens             int `json:"output_tokens"`
+	CacheReadInputTokens     int `json:"cache_read_input_tokens,omitempty"`
+	CacheCreationInputTokens int `json:"cache_creation_input_tokens,omitempty"`
 }
 
 // Error response

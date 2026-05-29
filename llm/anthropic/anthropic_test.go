@@ -331,6 +331,75 @@ func TestProvider_ReasoningEffortEnablesThinking(t *testing.T) {
 	}
 }
 
+func TestProvider_WebSearchAndCitations(t *testing.T) {
+	server := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		var found bool
+		for _, tl := range req.Tools {
+			if tl.Type == "web_search_20250305" && tl.MaxUses == 3 {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("expected web_search tool with max_uses=3, got %+v", req.Tools)
+		}
+		resp := response{
+			Content: []contentBlock{{Type: "text", Text: "result", Citations: []anthropicCitation{
+				{Type: "web_search_result_location", URL: "https://x.com", Title: "X"},
+			}}},
+			StopReason: "end_turn",
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+	})
+	defer server.Close()
+
+	p := New("key", WithBaseURL(server.URL))
+	resp, err := p.Complete(context.Background(), &langrails.CompletionRequest{
+		Model:       "claude",
+		Messages:    []langrails.Message{{Role: "user", Content: "search"}},
+		ServerTools: []langrails.ServerTool{langrails.WebSearch(&langrails.WebSearchOptions{MaxUses: 3})},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resp.Citations) != 1 || resp.Citations[0].URL != "https://x.com" {
+		t.Errorf("citations = %+v", resp.Citations)
+	}
+}
+
+func TestProvider_CacheControlAndUsage(t *testing.T) {
+	server := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		last := req.Messages[len(req.Messages)-1]
+		block := last.Content[len(last.Content)-1]
+		if block.CacheControl == nil || block.CacheControl.Type != "ephemeral" {
+			t.Errorf("expected cache_control ephemeral, got %+v", block.CacheControl)
+		}
+		resp := response{
+			Content:    []contentBlock{{Type: "text", Text: "ok"}},
+			StopReason: "end_turn",
+			Usage:      usage{InputTokens: 10, OutputTokens: 5, CacheReadInputTokens: 100, CacheCreationInputTokens: 20},
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+	})
+	defer server.Close()
+
+	p := New("key", WithBaseURL(server.URL))
+	resp, err := p.Complete(context.Background(), &langrails.CompletionRequest{
+		Model:        "claude",
+		Messages:     []langrails.Message{{Role: "user", Content: "big prompt"}},
+		CacheControl: true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Usage.CachedTokens != 100 || resp.Usage.CacheCreationTokens != 20 {
+		t.Errorf("usage = %+v", resp.Usage)
+	}
+}
+
 func TestProvider_Vision(t *testing.T) {
 	server := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
 		var req request

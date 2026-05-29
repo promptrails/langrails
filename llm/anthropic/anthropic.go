@@ -280,6 +280,26 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream boo
 		r.ToolChoice = tc
 	}
 
+	// Built-in web search server tool.
+	for _, st := range req.ServerTools {
+		if st.Type == langrails.ServerToolWebSearch {
+			wt := tool{Type: "web_search_20250305", Name: "web_search"}
+			if st.WebSearch != nil && st.WebSearch.MaxUses > 0 {
+				wt.MaxUses = st.WebSearch.MaxUses
+			}
+			r.Tools = append(r.Tools, wt)
+		}
+	}
+
+	// Prompt caching: mark the end of the prompt prefix with a cache breakpoint
+	// on the last content block of the last message.
+	if req.CacheControl && len(r.Messages) > 0 {
+		last := &r.Messages[len(r.Messages)-1]
+		if len(last.Content) > 0 {
+			last.Content[len(last.Content)-1].CacheControl = &cacheControl{Type: "ephemeral"}
+		}
+	}
+
 	return json.Marshal(r)
 }
 
@@ -308,9 +328,11 @@ func (p *Provider) parseResponse(resp *response) *langrails.CompletionResponse {
 		Model:        resp.Model,
 		FinishReason: resp.StopReason,
 		Usage: langrails.TokenUsage{
-			PromptTokens:     resp.Usage.InputTokens,
-			CompletionTokens: resp.Usage.OutputTokens,
-			TotalTokens:      resp.Usage.InputTokens + resp.Usage.OutputTokens,
+			PromptTokens:        resp.Usage.InputTokens,
+			CompletionTokens:    resp.Usage.OutputTokens,
+			TotalTokens:         resp.Usage.InputTokens + resp.Usage.OutputTokens,
+			CachedTokens:        resp.Usage.CacheReadInputTokens,
+			CacheCreationTokens: resp.Usage.CacheCreationInputTokens,
 		},
 	}
 
@@ -320,6 +342,13 @@ func (p *Provider) parseResponse(resp *response) *langrails.CompletionResponse {
 			result.Thinking += block.Text
 		case "text":
 			result.Content += block.Text
+			for _, c := range block.Citations {
+				result.Citations = append(result.Citations, langrails.Citation{
+					URL:     c.URL,
+					Title:   c.Title,
+					Snippet: c.CitedText,
+				})
+			}
 		case "tool_use":
 			args, _ := json.Marshal(block.Input)
 			// If this is our structured_output tool, return as content
