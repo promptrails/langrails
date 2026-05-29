@@ -166,6 +166,14 @@ func (p *Provider) readStream(body io.ReadCloser, ch chan<- langrails.StreamEven
 
 		delta := chunk.Choices[0].Delta
 
+		// Reasoning (emitted before content, matching provider order)
+		if r := firstNonEmpty(delta.ReasoningContent, delta.Reasoning); r != "" {
+			ch <- langrails.StreamEvent{
+				Type:      langrails.EventReasoning,
+				Reasoning: r,
+			}
+		}
+
 		// Content
 		if delta.Content != "" {
 			ch <- langrails.StreamEvent{
@@ -310,6 +318,16 @@ func convertToolChoice(tc *langrails.ToolChoice) interface{} {
 	}
 }
 
+// firstNonEmpty returns the first non-empty string from values.
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 // toUsage maps the OpenAI usage object (including the optional cached/reasoning
 // token details) to the unified TokenUsage.
 func toUsage(u usage) langrails.TokenUsage {
@@ -336,6 +354,7 @@ func (p *Provider) parseResponse(resp *response) *langrails.CompletionResponse {
 	if len(resp.Choices) > 0 {
 		choice := resp.Choices[0]
 		result.Content = choice.Message.Content
+		result.Thinking = firstNonEmpty(choice.Message.ReasoningContent, choice.Message.Reasoning)
 		result.FinishReason = choice.FinishReason
 
 		for _, tc := range choice.Message.ToolCalls {

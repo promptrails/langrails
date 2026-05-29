@@ -101,6 +101,10 @@ type choiceMessage struct {
 	Role      string     `json:"role"`
 	Content   string     `json:"content"`
 	ToolCalls []toolCall `json:"tool_calls,omitempty"`
+	// Reasoning text: providers diverge on the field name (DeepSeek/most use
+	// reasoning_content; OpenRouter uses reasoning).
+	ReasoningContent string `json:"reasoning_content,omitempty"`
+	Reasoning        string `json:"reasoning,omitempty"`
 }
 
 type usage struct {
@@ -142,8 +146,10 @@ type streamChoice struct {
 }
 
 type streamDelta struct {
-	Content   string           `json:"content"`
-	ToolCalls []streamToolCall `json:"tool_calls,omitempty"`
+	Content          string           `json:"content"`
+	ToolCalls        []streamToolCall `json:"tool_calls,omitempty"`
+	ReasoningContent string           `json:"reasoning_content,omitempty"`
+	Reasoning        string           `json:"reasoning,omitempty"`
 }
 
 type streamToolCall struct {

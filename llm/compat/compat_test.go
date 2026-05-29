@@ -497,6 +497,76 @@ func TestProvider_UsageDetails(t *testing.T) {
 	}
 }
 
+func TestProvider_ReasoningContent(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := response{Choices: []choice{{
+			Message:      choiceMessage{Content: "42", ReasoningContent: "first I considered..."},
+			FinishReason: "stop",
+		}}}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	provider := New(Config{Name: "test", BaseURL: server.URL, APIKey: "key"})
+	resp, err := provider.Complete(context.Background(), &langrails.CompletionRequest{
+		Model:    "deepseek-reasoner",
+		Messages: []langrails.Message{{Role: "user", Content: "what is 6*7"}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Thinking != "first I considered..." {
+		t.Errorf("Thinking = %q", resp.Thinking)
+	}
+	if resp.Content != "42" {
+		t.Errorf("Content = %q", resp.Content)
+	}
+}
+
+func TestProvider_Stream_Reasoning(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		flusher := w.(http.Flusher)
+		chunks := []string{
+			`{"choices":[{"delta":{"reasoning_content":"thinking"}}]}`,
+			`{"choices":[{"delta":{"reasoning_content":" more"}}]}`,
+			`{"choices":[{"delta":{"content":"answer"}}]}`,
+			`{"choices":[{"delta":{},"finish_reason":"stop"}]}`,
+		}
+		for _, c := range chunks {
+			_, _ = w.Write([]byte("data: " + c + "\n\n"))
+			flusher.Flush()
+		}
+		_, _ = w.Write([]byte("data: [DONE]\n\n"))
+		flusher.Flush()
+	}))
+	defer server.Close()
+
+	provider := New(Config{Name: "test", BaseURL: server.URL, APIKey: "key"})
+	ch, err := provider.Stream(context.Background(), &langrails.CompletionRequest{
+		Model:    "deepseek-reasoner",
+		Messages: []langrails.Message{{Role: "user", Content: "hi"}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var reasoning, content string
+	for event := range ch {
+		switch event.Type {
+		case langrails.EventReasoning:
+			reasoning += event.Reasoning
+		case langrails.EventContent:
+			content += event.Content
+		}
+	}
+	if reasoning != "thinking more" {
+		t.Errorf("reasoning = %q", reasoning)
+	}
+	if content != "answer" {
+		t.Errorf("content = %q", content)
+	}
+}
+
 // jsonEqual compares two values by their JSON encodings (order-independent for objects).
 func jsonEqual(a, b interface{}) bool {
 	ab, _ := json.Marshal(a)
