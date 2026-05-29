@@ -269,6 +269,32 @@ func TestProvider_ToolChoice(t *testing.T) {
 	}
 }
 
+func TestProvider_JSONMode(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if req.GenerationConfig == nil || req.GenerationConfig.ResponseMIMEType != "application/json" {
+			t.Errorf("expected responseMimeType application/json, got %+v", req.GenerationConfig)
+		}
+		if req.GenerationConfig.ResponseSchema != nil {
+			t.Error("JSON mode must not carry a responseSchema")
+		}
+		resp := response{Candidates: []candidate{{Content: content{Parts: []part{{Text: "{}"}}}, FinishReason: "STOP"}}}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	provider := New("key", WithBaseURL(server.URL))
+	_, err := provider.Complete(context.Background(), &langrails.CompletionRequest{
+		Model:          "gemini-2.0-flash",
+		Messages:       []langrails.Message{{Role: "user", Content: "json please"}},
+		ResponseFormat: langrails.ResponseFormatJSONObject,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestProvider_GroundingCitations(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req request

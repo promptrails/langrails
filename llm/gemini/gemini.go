@@ -242,7 +242,7 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest) ([]byte, e
 		}
 	}
 
-	// Structured output via responseSchema
+	// Structured output via responseSchema, or schema-less JSON mode.
 	if req.OutputSchema != nil {
 		if r.GenerationConfig == nil {
 			r.GenerationConfig = &generationConfig{}
@@ -250,6 +250,11 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest) ([]byte, e
 		schema := json.RawMessage(*req.OutputSchema)
 		r.GenerationConfig.ResponseMIMEType = "application/json"
 		r.GenerationConfig.ResponseSchema = &schema
+	} else if req.ResponseFormat == langrails.ResponseFormatJSONObject {
+		if r.GenerationConfig == nil {
+			r.GenerationConfig = &generationConfig{}
+		}
+		r.GenerationConfig.ResponseMIMEType = "application/json"
 	}
 
 	// Reasoning / thinking (Gemini 2.5+)
