@@ -192,13 +192,8 @@ func (p *Provider) readStream(body io.ReadCloser, ch chan<- langrails.StreamEven
 		if chunk.Choices[0].FinishReason == "stop" || chunk.Choices[0].FinishReason == "tool_calls" {
 			// Usage may come in the final chunk
 			if chunk.Usage != nil {
-				ch <- langrails.StreamEvent{
-					Usage: &langrails.TokenUsage{
-						PromptTokens:     chunk.Usage.PromptTokens,
-						CompletionTokens: chunk.Usage.CompletionTokens,
-						TotalTokens:      chunk.Usage.TotalTokens,
-					},
-				}
+				u := toUsage(*chunk.Usage)
+				ch <- langrails.StreamEvent{Usage: &u}
 			}
 		}
 	}
@@ -250,8 +245,11 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream boo
 		oaiReq.Seed = req.Seed
 	}
 
-	// Reasoning/thinking mode for o-series models
-	if req.Thinking {
+	// Reasoning effort. An explicit ReasoningEffort wins; otherwise fall back to
+	// the legacy Thinking + ThinkingBudget heuristic for backward compatibility.
+	if req.ReasoningEffort != "" {
+		oaiReq.Reasoning = &reasoningParam{Effort: string(req.ReasoningEffort)}
+	} else if req.Thinking {
 		effort := "medium"
 		if req.ThinkingBudget != nil {
 			if *req.ThinkingBudget <= 1024 {
@@ -266,8 +264,12 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream boo
 	if len(req.Tools) > 0 {
 		oaiReq.Tools = convertTools(req.Tools)
 	}
+	if tc := convertToolChoice(req.ToolChoice); tc != nil {
+		oaiReq.ToolChoice = tc
+	}
 
-	if req.OutputSchema != nil {
+	switch {
+	case req.OutputSchema != nil:
 		schema := enforceStrictSchema(*req.OutputSchema)
 		oaiReq.ResponseFormat = &responseFormat{
 			Type: "json_schema",
@@ -277,19 +279,58 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream boo
 				Strict: true,
 			},
 		}
+	case req.ResponseFormat == langrails.ResponseFormatJSONObject:
+		oaiReq.ResponseFormat = &responseFormat{Type: "json_object"}
 	}
 
 	return json.Marshal(oaiReq)
 }
 
+// convertToolChoice maps the unified ToolChoice to the OpenAI tool_choice value
+// (a string for auto/none/required, or an object for a specific tool). Returns
+// nil when no tool choice is set.
+func convertToolChoice(tc *langrails.ToolChoice) interface{} {
+	if tc == nil {
+		return nil
+	}
+	switch tc.Mode {
+	case langrails.ToolChoiceAuto:
+		return "auto"
+	case langrails.ToolChoiceNone:
+		return "none"
+	case langrails.ToolChoiceRequired:
+		return "required"
+	case langrails.ToolChoiceTool:
+		var fn toolChoiceFunction
+		fn.Type = "function"
+		fn.Function.Name = tc.Name
+		return fn
+	default:
+		return nil
+	}
+}
+
+// toUsage maps the OpenAI usage object (including the optional cached/reasoning
+// token details) to the unified TokenUsage.
+func toUsage(u usage) langrails.TokenUsage {
+	tu := langrails.TokenUsage{
+		PromptTokens:     u.PromptTokens,
+		CompletionTokens: u.CompletionTokens,
+		TotalTokens:      u.TotalTokens,
+	}
+	if u.PromptTokensDetails != nil {
+		tu.CachedTokens = u.PromptTokensDetails.CachedTokens
+	}
+	if u.CompletionTokensDetails != nil {
+		tu.ReasoningTokens = u.CompletionTokensDetails.ReasoningTokens
+	}
+	return tu
+}
+
 func (p *Provider) parseResponse(resp *response) *langrails.CompletionResponse {
 	result := &langrails.CompletionResponse{
 		Model: resp.Model,
-		Usage: langrails.TokenUsage{
-			PromptTokens:     resp.Usage.PromptTokens,
-			CompletionTokens: resp.Usage.CompletionTokens,
-			TotalTokens:      resp.Usage.TotalTokens,
-		},
+		Usage: toUsage(resp.Usage),
 	}
 
 	if len(resp.Choices) > 0 {

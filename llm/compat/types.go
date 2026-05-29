@@ -16,8 +16,17 @@ type request struct {
 	Seed             *int            `json:"seed,omitempty"`
 	Stream           bool            `json:"stream"`
 	Tools            []tool          `json:"tools,omitempty"`
+	ToolChoice       interface{}     `json:"tool_choice,omitempty"` // string or toolChoiceFunction
 	ResponseFormat   *responseFormat `json:"response_format,omitempty"`
 	Reasoning        *reasoningParam `json:"reasoning,omitempty"`
+}
+
+// toolChoiceFunction is the object form of tool_choice that forces a named tool.
+type toolChoiceFunction struct {
+	Type     string `json:"type"`
+	Function struct {
+		Name string `json:"name"`
+	} `json:"function"`
 }
 
 type reasoningParam struct {
@@ -95,9 +104,19 @@ type choiceMessage struct {
 }
 
 type usage struct {
-	PromptTokens     int `json:"prompt_tokens"`
-	CompletionTokens int `json:"completion_tokens"`
-	TotalTokens      int `json:"total_tokens"`
+	PromptTokens            int                      `json:"prompt_tokens"`
+	CompletionTokens        int                      `json:"completion_tokens"`
+	TotalTokens             int                      `json:"total_tokens"`
+	PromptTokensDetails     *promptTokensDetails     `json:"prompt_tokens_details,omitempty"`
+	CompletionTokensDetails *completionTokensDetails `json:"completion_tokens_details,omitempty"`
+}
+
+type promptTokensDetails struct {
+	CachedTokens int `json:"cached_tokens"`
+}
+
+type completionTokensDetails struct {
+	ReasoningTokens int `json:"reasoning_tokens"`
 }
 
 // Error response

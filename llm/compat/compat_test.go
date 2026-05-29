@@ -377,3 +377,129 @@ func TestProvider_Stream_ToolCalls(t *testing.T) {
 		t.Errorf("unexpected args: %s", toolCalls[0].Arguments)
 	}
 }
+
+func TestProvider_ReasoningEffort(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if req.Reasoning == nil || req.Reasoning.Effort != "high" {
+			t.Errorf("expected reasoning effort high, got %+v", req.Reasoning)
+		}
+		_ = json.NewEncoder(w).Encode(response{Choices: []choice{{Message: choiceMessage{Content: "ok"}, FinishReason: "stop"}}})
+	}))
+	defer server.Close()
+
+	provider := New(Config{Name: "test", BaseURL: server.URL, APIKey: "key"})
+	_, err := provider.Complete(context.Background(), &langrails.CompletionRequest{
+		Model:           "o3",
+		Messages:        []langrails.Message{{Role: "user", Content: "hi"}},
+		ReasoningEffort: langrails.ReasoningHigh,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestProvider_ToolChoice(t *testing.T) {
+	cases := []struct {
+		name string
+		tc   *langrails.ToolChoice
+		want interface{} // expected JSON value of tool_choice
+	}{
+		{"auto", langrails.AutoToolChoice(), "auto"},
+		{"none", langrails.NoToolChoice(), "none"},
+		{"required", langrails.RequiredToolChoice(), "required"},
+		{"specific", langrails.ForceTool("get_weather"), map[string]interface{}{
+			"type": "function", "function": map[string]interface{}{"name": "get_weather"},
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// Decode into a generic map to inspect the raw tool_choice JSON.
+				var raw map[string]json.RawMessage
+				_ = json.NewDecoder(r.Body).Decode(&raw)
+				var got interface{}
+				_ = json.Unmarshal(raw["tool_choice"], &got)
+				if !jsonEqual(got, tc.want) {
+					t.Errorf("tool_choice = %#v, want %#v", got, tc.want)
+				}
+				_ = json.NewEncoder(w).Encode(response{Choices: []choice{{Message: choiceMessage{Content: "ok"}, FinishReason: "stop"}}})
+			}))
+			defer server.Close()
+
+			provider := New(Config{Name: "test", BaseURL: server.URL, APIKey: "key"})
+			_, err := provider.Complete(context.Background(), &langrails.CompletionRequest{
+				Model:      "gpt-4o",
+				Messages:   []langrails.Message{{Role: "user", Content: "hi"}},
+				Tools:      []langrails.ToolDefinition{{Name: "get_weather", Parameters: json.RawMessage(`{"type":"object"}`)}},
+				ToolChoice: tc.tc,
+			})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestProvider_JSONObjectMode(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if req.ResponseFormat == nil || req.ResponseFormat.Type != "json_object" {
+			t.Errorf("expected response_format json_object, got %+v", req.ResponseFormat)
+		}
+		if req.ResponseFormat.JSONSchema != nil {
+			t.Error("json_object mode must not carry a json_schema")
+		}
+		_ = json.NewEncoder(w).Encode(response{Choices: []choice{{Message: choiceMessage{Content: "{}"}, FinishReason: "stop"}}})
+	}))
+	defer server.Close()
+
+	provider := New(Config{Name: "test", BaseURL: server.URL, APIKey: "key"})
+	_, err := provider.Complete(context.Background(), &langrails.CompletionRequest{
+		Model:          "gpt-4o",
+		Messages:       []langrails.Message{{Role: "user", Content: "json please"}},
+		ResponseFormat: langrails.ResponseFormatJSONObject,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestProvider_UsageDetails(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := response{
+			Choices: []choice{{Message: choiceMessage{Content: "ok"}, FinishReason: "stop"}},
+			Usage: usage{
+				PromptTokens: 100, CompletionTokens: 50, TotalTokens: 150,
+				PromptTokensDetails:     &promptTokensDetails{CachedTokens: 80},
+				CompletionTokensDetails: &completionTokensDetails{ReasoningTokens: 30},
+			},
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	provider := New(Config{Name: "test", BaseURL: server.URL, APIKey: "key"})
+	resp, err := provider.Complete(context.Background(), &langrails.CompletionRequest{
+		Model:    "gpt-4o",
+		Messages: []langrails.Message{{Role: "user", Content: "hi"}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Usage.CachedTokens != 80 {
+		t.Errorf("CachedTokens = %d, want 80", resp.Usage.CachedTokens)
+	}
+	if resp.Usage.ReasoningTokens != 30 {
+		t.Errorf("ReasoningTokens = %d, want 30", resp.Usage.ReasoningTokens)
+	}
+}
+
+// jsonEqual compares two values by their JSON encodings (order-independent for objects).
+func jsonEqual(a, b interface{}) bool {
+	ab, _ := json.Marshal(a)
+	bb, _ := json.Marshal(b)
+	return string(ab) == string(bb)
+}
