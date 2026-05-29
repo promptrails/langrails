@@ -232,6 +232,9 @@ func readStream(body io.ReadCloser, ch chan<- langrails.StreamEvent) {
 			if json.Unmarshal(msg.Payload, &ev) != nil {
 				continue
 			}
+			if ev.Delta.ReasoningContent != nil && ev.Delta.ReasoningContent.Text != "" {
+				ch <- langrails.StreamEvent{Type: langrails.EventReasoning, Reasoning: ev.Delta.ReasoningContent.Text}
+			}
 			if ev.Delta.Text != "" {
 				ch <- langrails.StreamEvent{Type: langrails.EventContent, Content: ev.Delta.Text}
 			}
@@ -286,6 +289,22 @@ func buildRequestBody(req *langrails.CompletionRequest) ([]byte, error) {
 		ic.StopSequences = req.Stop
 	}
 	r.InferenceConfig = ic
+
+	// Reasoning. Carried via additionalModelRequestFields (model-family specific;
+	// the reasoning_config form is for Anthropic Claude models on Bedrock).
+	if req.Thinking || req.ReasoningEffort != "" {
+		budget := 0
+		if req.ThinkingBudget != nil {
+			budget = *req.ThinkingBudget
+		} else {
+			budget = req.ReasoningEffort.BudgetTokens()
+		}
+		if budget == 0 {
+			budget = 10000
+		}
+		r.AdditionalModelRequestFields = json.RawMessage(
+			fmt.Sprintf(`{"reasoning_config":{"type":"enabled","budget_tokens":%d}}`, budget))
+	}
 
 	var tools []toolEntry
 	for _, t := range req.Tools {
@@ -414,6 +433,8 @@ func parseResponse(resp *response) *langrails.CompletionResponse {
 
 	for _, block := range resp.Output.Message.Content {
 		switch {
+		case block.ReasoningContent != nil && block.ReasoningContent.ReasoningText != nil:
+			result.Thinking += block.ReasoningContent.ReasoningText.Text
 		case block.ToolUse != nil:
 			args := string(block.ToolUse.Input)
 			if block.ToolUse.Name == "structured_output" {

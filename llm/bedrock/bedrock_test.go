@@ -276,6 +276,86 @@ func TestProvider_ToolChoice(t *testing.T) {
 	}
 }
 
+func TestProvider_Reasoning(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if len(req.AdditionalModelRequestFields) == 0 {
+			t.Fatal("expected additionalModelRequestFields for reasoning")
+		}
+		if !strings.Contains(string(req.AdditionalModelRequestFields), "reasoning_config") {
+			t.Errorf("additionalModelRequestFields = %s", req.AdditionalModelRequestFields)
+		}
+		if !strings.Contains(string(req.AdditionalModelRequestFields), "16384") {
+			t.Errorf("expected high budget 16384, got %s", req.AdditionalModelRequestFields)
+		}
+		resp := response{StopReason: "end_turn"}
+		resp.Output.Message.Content = []responseContentBlock{
+			{ReasoningContent: &reasoningContentBlock{ReasoningText: &struct {
+				Text      string `json:"text"`
+				Signature string `json:"signature,omitempty"`
+			}{Text: "thinking through it"}}},
+			{Text: "the answer"},
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	p := testProvider(server.URL)
+	resp, err := p.Complete(context.Background(), &langrails.CompletionRequest{
+		Model:           "anthropic.claude-3-7-sonnet-20250219-v1:0",
+		Messages:        []langrails.Message{{Role: "user", Content: "hi"}},
+		ReasoningEffort: langrails.ReasoningHigh,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Thinking != "thinking through it" {
+		t.Errorf("Thinking = %q", resp.Thinking)
+	}
+	if resp.Content != "the answer" {
+		t.Errorf("Content = %q", resp.Content)
+	}
+}
+
+func TestProvider_Stream_Reasoning(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		var stream bytes.Buffer
+		stream.Write(frame(map[string]string{":event-type": "contentBlockDelta"},
+			[]byte(`{"contentBlockIndex":0,"delta":{"reasoningContent":{"text":"hmm"}}}`)))
+		stream.Write(frame(map[string]string{":event-type": "contentBlockDelta"},
+			[]byte(`{"contentBlockIndex":1,"delta":{"text":"answer"}}`)))
+		stream.Write(frame(map[string]string{":event-type": "messageStop"}, []byte(`{"stopReason":"end_turn"}`)))
+		_, _ = w.Write(stream.Bytes())
+	}))
+	defer server.Close()
+
+	p := testProvider(server.URL)
+	ch, err := p.Stream(context.Background(), &langrails.CompletionRequest{
+		Model:           "anthropic.claude",
+		Messages:        []langrails.Message{{Role: "user", Content: "hi"}},
+		ReasoningEffort: langrails.ReasoningLow,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	var reasoning, content string
+	for ev := range ch {
+		switch ev.Type {
+		case langrails.EventReasoning:
+			reasoning += ev.Reasoning
+		case langrails.EventContent:
+			content += ev.Content
+		}
+	}
+	if reasoning != "hmm" {
+		t.Errorf("reasoning = %q", reasoning)
+	}
+	if content != "answer" {
+		t.Errorf("content = %q", content)
+	}
+}
+
 func TestProvider_ToolChoiceNoneOmitsToolConfig(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req request

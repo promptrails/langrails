@@ -6,10 +6,11 @@ import "encoding/json"
 // The model identifier is carried in the URL path, not the body.
 
 type request struct {
-	Messages        []message        `json:"messages"`
-	System          []systemBlock    `json:"system,omitempty"`
-	InferenceConfig *inferenceConfig `json:"inferenceConfig,omitempty"`
-	ToolConfig      *toolConfig      `json:"toolConfig,omitempty"`
+	Messages                     []message        `json:"messages"`
+	System                       []systemBlock    `json:"system,omitempty"`
+	InferenceConfig              *inferenceConfig `json:"inferenceConfig,omitempty"`
+	ToolConfig                   *toolConfig      `json:"toolConfig,omitempty"`
+	AdditionalModelRequestFields json.RawMessage  `json:"additionalModelRequestFields,omitempty"`
 }
 
 type systemBlock struct {
@@ -98,8 +99,16 @@ type responseMessage struct {
 }
 
 type responseContentBlock struct {
-	Text    string           `json:"text,omitempty"`
-	ToolUse *responseToolUse `json:"toolUse,omitempty"`
+	Text             string                 `json:"text,omitempty"`
+	ToolUse          *responseToolUse       `json:"toolUse,omitempty"`
+	ReasoningContent *reasoningContentBlock `json:"reasoningContent,omitempty"`
+}
+
+type reasoningContentBlock struct {
+	ReasoningText *struct {
+		Text      string `json:"text"`
+		Signature string `json:"signature,omitempty"`
+	} `json:"reasoningText,omitempty"`
 }
 
 type responseToolUse struct {
@@ -133,6 +142,9 @@ type streamContentBlockDelta struct {
 		ToolUse *struct {
 			Input string `json:"input"`
 		} `json:"toolUse,omitempty"`
+		ReasoningContent *struct {
+			Text string `json:"text"`
+		} `json:"reasoningContent,omitempty"`
 	} `json:"delta"`
 	ContentBlockIndex int `json:"contentBlockIndex"`
 }
