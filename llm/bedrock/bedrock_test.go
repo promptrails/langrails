@@ -276,6 +276,37 @@ func TestProvider_ToolChoice(t *testing.T) {
 	}
 }
 
+func TestProvider_CachePointAndUsage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		last := req.Messages[len(req.Messages)-1]
+		if last.Content[len(last.Content)-1].CachePoint == nil {
+			t.Errorf("expected trailing cachePoint, got %+v", last.Content)
+		}
+		resp := response{
+			StopReason: "end_turn",
+			Usage:      usage{InputTokens: 10, OutputTokens: 5, TotalTokens: 15, CacheReadInputTokens: 90, CacheWriteInputTokens: 40},
+		}
+		resp.Output.Message.Content = []responseContentBlock{{Text: "ok"}}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	p := testProvider(server.URL)
+	resp, err := p.Complete(context.Background(), &langrails.CompletionRequest{
+		Model:        "anthropic.claude",
+		Messages:     []langrails.Message{{Role: "user", Content: "big"}},
+		CacheControl: true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Usage.CachedTokens != 90 || resp.Usage.CacheCreationTokens != 40 {
+		t.Errorf("usage = %+v", resp.Usage)
+	}
+}
+
 func TestProvider_Vision(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req request

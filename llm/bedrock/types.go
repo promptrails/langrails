@@ -35,6 +35,11 @@ type contentBlock struct {
 	Image      *imageBlock `json:"image,omitempty"`
 	ToolUse    *toolUse    `json:"toolUse,omitempty"`
 	ToolResult *toolResult `json:"toolResult,omitempty"`
+	CachePoint *cachePoint `json:"cachePoint,omitempty"`
+}
+
+type cachePoint struct {
+	Type string `json:"type"` // "default"
 }
 
 type imageBlock struct {
@@ -128,9 +133,11 @@ type responseToolUse struct {
 }
 
 type usage struct {
-	InputTokens  int `json:"inputTokens"`
-	OutputTokens int `json:"outputTokens"`
-	TotalTokens  int `json:"totalTokens"`
+	InputTokens           int `json:"inputTokens"`
+	OutputTokens          int `json:"outputTokens"`
+	TotalTokens           int `json:"totalTokens"`
+	CacheReadInputTokens  int `json:"cacheReadInputTokens,omitempty"`
+	CacheWriteInputTokens int `json:"cacheWriteInputTokens,omitempty"`
 }
 
 // Streaming event payload types (converse-stream). Each event-stream frame's

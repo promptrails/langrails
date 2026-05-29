@@ -259,9 +259,11 @@ func readStream(body io.ReadCloser, ch chan<- langrails.StreamEvent) {
 				continue
 			}
 			ch <- langrails.StreamEvent{Usage: &langrails.TokenUsage{
-				PromptTokens:     ev.Usage.InputTokens,
-				CompletionTokens: ev.Usage.OutputTokens,
-				TotalTokens:      ev.Usage.TotalTokens,
+				PromptTokens:        ev.Usage.InputTokens,
+				CompletionTokens:    ev.Usage.OutputTokens,
+				TotalTokens:         ev.Usage.TotalTokens,
+				CachedTokens:        ev.Usage.CacheReadInputTokens,
+				CacheCreationTokens: ev.Usage.CacheWriteInputTokens,
 			}}
 		}
 	}
@@ -273,6 +275,12 @@ func buildRequestBody(req *langrails.CompletionRequest) ([]byte, error) {
 	r := request{
 		Messages: convertMessages(req),
 		System:   buildSystem(req),
+	}
+
+	// Prompt caching: mark a cache breakpoint at the end of the last message.
+	if req.CacheControl && len(r.Messages) > 0 {
+		last := &r.Messages[len(r.Messages)-1]
+		last.Content = append(last.Content, contentBlock{CachePoint: &cachePoint{Type: "default"}})
 	}
 
 	maxTokens := defaultMaxTokens
@@ -454,9 +462,11 @@ func parseResponse(resp *response) *langrails.CompletionResponse {
 	result := &langrails.CompletionResponse{
 		FinishReason: resp.StopReason,
 		Usage: langrails.TokenUsage{
-			PromptTokens:     resp.Usage.InputTokens,
-			CompletionTokens: resp.Usage.OutputTokens,
-			TotalTokens:      resp.Usage.TotalTokens,
+			PromptTokens:        resp.Usage.InputTokens,
+			CompletionTokens:    resp.Usage.OutputTokens,
+			TotalTokens:         resp.Usage.TotalTokens,
+			CachedTokens:        resp.Usage.CacheReadInputTokens,
+			CacheCreationTokens: resp.Usage.CacheWriteInputTokens,
 		},
 	}
 
