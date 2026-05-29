@@ -15,6 +15,7 @@ import (
 	"github.com/promptrails/langrails"
 	"github.com/promptrails/langrails/internal/awssig"
 	"github.com/promptrails/langrails/internal/eventstream"
+	"github.com/promptrails/langrails/internal/mediautil"
 )
 
 const (
@@ -413,12 +414,40 @@ func convertMessages(req *langrails.CompletionRequest) []message {
 		default:
 			msgs = append(msgs, message{
 				Role:    "user",
-				Content: []contentBlock{{Text: m.Content}},
+				Content: convertContentParts(m),
 			})
 		}
 	}
 
 	return msgs
+}
+
+// convertContentParts builds Converse content blocks from a message, handling
+// multimodal image parts. Converse embeds images as bytes, so only base64 data
+// URIs are supported; plain image URLs are skipped (Converse can't fetch them).
+func convertContentParts(m langrails.Message) []contentBlock {
+	if len(m.ContentParts) == 0 {
+		return []contentBlock{{Text: m.Content}}
+	}
+	var blocks []contentBlock
+	for _, cp := range m.ContentParts {
+		switch cp.Type {
+		case "image":
+			mt, data, _, isB64 := mediautil.ParseImageURL(cp.ImageURL)
+			if format := mediautil.ImageFormat(mt); isB64 && format != "" {
+				blocks = append(blocks, contentBlock{Image: &imageBlock{
+					Format: format,
+					Source: imageSourceBytes{Bytes: data},
+				}})
+			}
+		default:
+			blocks = append(blocks, contentBlock{Text: cp.Text})
+		}
+	}
+	if len(blocks) == 0 {
+		blocks = append(blocks, contentBlock{Text: m.Content})
+	}
+	return blocks
 }
 
 func parseResponse(resp *response) *langrails.CompletionResponse {

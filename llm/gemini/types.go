@@ -29,8 +29,20 @@ type content struct {
 type part struct {
 	Text             string            `json:"text,omitempty"`
 	Thought          bool              `json:"thought,omitempty"`
+	InlineData       *inlineData       `json:"inlineData,omitempty"`
+	FileData         *fileData         `json:"fileData,omitempty"`
 	FunctionCall     *functionCall     `json:"functionCall,omitempty"`
 	FunctionResponse *functionResponse `json:"functionResponse,omitempty"`
+}
+
+type inlineData struct {
+	MIMEType string `json:"mimeType"`
+	Data     string `json:"data"` // base64
+}
+
+type fileData struct {
+	MIMEType string `json:"mimeType,omitempty"`
+	FileURI  string `json:"fileUri"`
 }
 
 type functionCall struct {

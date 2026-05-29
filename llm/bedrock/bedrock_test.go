@@ -276,6 +276,36 @@ func TestProvider_ToolChoice(t *testing.T) {
 	}
 }
 
+func TestProvider_Vision(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		blocks := req.Messages[0].Content
+		if len(blocks) != 2 || blocks[1].Image == nil {
+			t.Fatalf("expected image block, got %+v", blocks)
+		}
+		if blocks[1].Image.Format != "png" || blocks[1].Image.Source.Bytes != "AAAB" {
+			t.Errorf("image = %+v", blocks[1].Image)
+		}
+		resp := response{StopReason: "end_turn"}
+		resp.Output.Message.Content = []responseContentBlock{{Text: "ok"}}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	p := testProvider(server.URL)
+	_, err := p.Complete(context.Background(), &langrails.CompletionRequest{
+		Model: "anthropic.claude",
+		Messages: []langrails.Message{{Role: "user", ContentParts: []langrails.ContentPart{
+			langrails.TextPart("what is this"),
+			langrails.ImageBase64Part("AAAB", "image/png"),
+		}}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestProvider_Reasoning(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req request

@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/promptrails/langrails"
+	"github.com/promptrails/langrails/internal/mediautil"
 	"github.com/promptrails/langrails/internal/sse"
 )
 
@@ -380,15 +381,40 @@ func convertMessages(req *langrails.CompletionRequest) []message {
 
 		default:
 			msgs = append(msgs, message{
-				Role: m.Role,
-				Content: []contentBlock{
-					{Type: "text", Text: m.Content},
-				},
+				Role:    m.Role,
+				Content: convertContentParts(m),
 			})
 		}
 	}
 
 	return msgs
+}
+
+// convertContentParts builds Anthropic content blocks from a message, handling
+// multimodal image parts. Falls back to a single text block when no parts are set.
+func convertContentParts(m langrails.Message) []contentBlock {
+	if len(m.ContentParts) == 0 {
+		return []contentBlock{{Type: "text", Text: m.Content}}
+	}
+	var blocks []contentBlock
+	for _, part := range m.ContentParts {
+		switch part.Type {
+		case "image":
+			mt, data, url, isB64 := mediautil.ParseImageURL(part.ImageURL)
+			if isB64 {
+				blocks = append(blocks, contentBlock{Type: "image", Source: &imageSource{
+					Type: "base64", MediaType: mt, Data: data,
+				}})
+			} else {
+				blocks = append(blocks, contentBlock{Type: "image", Source: &imageSource{
+					Type: "url", URL: url,
+				}})
+			}
+		default:
+			blocks = append(blocks, contentBlock{Type: "text", Text: part.Text})
+		}
+	}
+	return blocks
 }
 
 func convertTools(tools []langrails.ToolDefinition) []tool {

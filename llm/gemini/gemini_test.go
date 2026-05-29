@@ -269,6 +269,35 @@ func TestProvider_ToolChoice(t *testing.T) {
 	}
 }
 
+func TestProvider_Vision(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		parts := req.Contents[0].Parts
+		if len(parts) != 2 || parts[1].InlineData == nil {
+			t.Fatalf("expected inlineData image part, got %+v", parts)
+		}
+		if parts[1].InlineData.MIMEType != "image/jpeg" || parts[1].InlineData.Data != "ZZZ" {
+			t.Errorf("inlineData = %+v", parts[1].InlineData)
+		}
+		resp := response{Candidates: []candidate{{Content: content{Parts: []part{{Text: "ok"}}}, FinishReason: "STOP"}}}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	provider := New("key", WithBaseURL(server.URL))
+	_, err := provider.Complete(context.Background(), &langrails.CompletionRequest{
+		Model: "gemini-2.0-flash",
+		Messages: []langrails.Message{{Role: "user", ContentParts: []langrails.ContentPart{
+			langrails.TextPart("describe"),
+			langrails.ImageBase64Part("ZZZ", "image/jpeg"),
+		}}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestProvider_Reasoning(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req request

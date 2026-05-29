@@ -32,8 +32,18 @@ type message struct {
 // contentBlock is a Converse content block. Exactly one field is set per block.
 type contentBlock struct {
 	Text       string      `json:"text,omitempty"`
+	Image      *imageBlock `json:"image,omitempty"`
 	ToolUse    *toolUse    `json:"toolUse,omitempty"`
 	ToolResult *toolResult `json:"toolResult,omitempty"`
+}
+
+type imageBlock struct {
+	Format string           `json:"format"` // png, jpeg, gif, webp
+	Source imageSourceBytes `json:"source"`
+}
+
+type imageSourceBytes struct {
+	Bytes string `json:"bytes"` // base64-encoded image bytes
 }
 
 type toolUse struct {

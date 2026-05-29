@@ -42,6 +42,14 @@ type contentBlock struct {
 	Input     json.RawMessage `json:"input,omitempty"`
 	ToolUseID string          `json:"tool_use_id,omitempty"`
 	Content   string          `json:"content,omitempty"`
+	Source    *imageSource    `json:"source,omitempty"`
+}
+
+type imageSource struct {
+	Type      string `json:"type"`                 // "base64" or "url"
+	MediaType string `json:"media_type,omitempty"` // for base64
+	Data      string `json:"data,omitempty"`       // base64 payload
+	URL       string `json:"url,omitempty"`        // for url
 }
 
 type tool struct {

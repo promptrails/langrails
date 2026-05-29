@@ -331,6 +331,36 @@ func TestProvider_ReasoningEffortEnablesThinking(t *testing.T) {
 	}
 }
 
+func TestProvider_Vision(t *testing.T) {
+	server := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if len(req.Messages) != 1 || len(req.Messages[0].Content) != 2 {
+			t.Fatalf("expected 1 message with 2 blocks, got %+v", req.Messages)
+		}
+		img := req.Messages[0].Content[1]
+		if img.Type != "image" || img.Source == nil || img.Source.Type != "base64" ||
+			img.Source.MediaType != "image/png" || img.Source.Data != "AAAB" {
+			t.Errorf("image block = %+v / source %+v", img, img.Source)
+		}
+		resp := response{Content: []contentBlock{{Type: "text", Text: "a cat"}}, StopReason: "end_turn"}
+		_ = json.NewEncoder(w).Encode(resp)
+	})
+	defer server.Close()
+
+	p := New("key", WithBaseURL(server.URL))
+	_, err := p.Complete(context.Background(), &langrails.CompletionRequest{
+		Model: "claude",
+		Messages: []langrails.Message{{Role: "user", ContentParts: []langrails.ContentPart{
+			langrails.TextPart("what is this?"),
+			langrails.ImageBase64Part("AAAB", "image/png"),
+		}}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestProvider_Stream_Thinking(t *testing.T) {
 	server := newMockServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		flusher := w.(http.Flusher)

@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/promptrails/langrails"
+	"github.com/promptrails/langrails/internal/mediautil"
 	"github.com/promptrails/langrails/internal/sse"
 )
 
@@ -388,13 +389,37 @@ func convertMessages(req *langrails.CompletionRequest) []content {
 				})
 			}
 		default:
-			c.Parts = []part{{Text: m.Content}}
+			c.Parts = convertContentParts(m)
 		}
 
 		contents = append(contents, c)
 	}
 
 	return contents
+}
+
+// convertContentParts builds Gemini parts from a message, handling multimodal
+// image parts. Base64 data URIs become inlineData; other URLs become fileData
+// (which Gemini resolves only for File API / Cloud Storage URIs).
+func convertContentParts(m langrails.Message) []part {
+	if len(m.ContentParts) == 0 {
+		return []part{{Text: m.Content}}
+	}
+	var parts []part
+	for _, cp := range m.ContentParts {
+		switch cp.Type {
+		case "image":
+			mt, data, url, isB64 := mediautil.ParseImageURL(cp.ImageURL)
+			if isB64 {
+				parts = append(parts, part{InlineData: &inlineData{MIMEType: mt, Data: data}})
+			} else {
+				parts = append(parts, part{FileData: &fileData{FileURI: url}})
+			}
+		default:
+			parts = append(parts, part{Text: cp.Text})
+		}
+	}
+	return parts
 }
 
 func convertTools(tools []langrails.ToolDefinition) []toolDeclaration {
