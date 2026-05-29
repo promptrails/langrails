@@ -46,6 +46,7 @@ For provider-specific options (custom base URL, HTTP client), use the direct imp
 | Hyperbolic | `langrails/llm/hyperbolic` | `api.hyperbolic.xyz` | Bearer token |
 | Alibaba DashScope (Qwen) | `langrails/llm/dashscope` | `dashscope-intl.aliyuncs.com` | Bearer token |
 | Hugging Face Router | `langrails/llm/huggingface` | `router.huggingface.co` | Bearer token |
+| Amazon Bedrock | `langrails/llm/bedrock` | `bedrock-runtime.<region>.amazonaws.com` | AWS SigV4 |
 
 ## Feature Matrix
 
@@ -347,6 +348,38 @@ provider := huggingface.New("hf_...")
 **Notes**:
 - Single API key + endpoint that proxies to Cerebras, SambaNova, Together, Fireworks, Groq, Hyperbolic, Novita and other partner providers
 - Useful when you want unified billing and automatic failover across providers
+
+## Amazon Bedrock
+
+Bedrock uses the unified [Converse API](https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference.html),
+so one provider works across Claude, Llama, Nova/Titan, Mistral, Cohere and more.
+Unlike the other providers it authenticates with AWS Signature V4 rather than an
+API key, so it is constructed directly (or via the registry with empty key):
+
+```go
+import "github.com/promptrails/langrails/llm/bedrock"
+
+// Reads AWS_REGION + AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY (+ AWS_SESSION_TOKEN)
+provider := bedrock.New()
+
+// Or configure explicitly
+provider := bedrock.New(
+    bedrock.WithRegion("us-east-1"),
+    bedrock.WithStaticCredentials(accessKeyID, secretAccessKey, ""),
+)
+
+// Registry form (ignores the key argument, uses AWS env credentials)
+provider, _ := llm.New(llm.Bedrock, "")
+```
+
+**Models**: pass a Bedrock model or inference-profile ID as `CompletionRequest.Model`,
+e.g. `anthropic.claude-3-5-sonnet-20241022-v2:0`, `us.meta.llama3-1-70b-instruct-v1:0`,
+`amazon.nova-pro-v1:0`.
+
+**Notes**:
+- SigV4 signing is implemented with the standard library only — no `aws-sdk-go` dependency.
+- Streaming uses the binary `vnd.amazon.eventstream` framing returned by `converse-stream`.
+- Temporary credentials (STS / assumed roles) are supported via `AWS_SESSION_TOKEN` or the third argument of `WithStaticCredentials`.
 
 ## Custom / Self-Hosted
 

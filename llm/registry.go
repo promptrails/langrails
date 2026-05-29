@@ -5,6 +5,7 @@ import (
 
 	"github.com/promptrails/langrails"
 	"github.com/promptrails/langrails/llm/anthropic"
+	"github.com/promptrails/langrails/llm/bedrock"
 	"github.com/promptrails/langrails/llm/cerebras"
 	"github.com/promptrails/langrails/llm/chutes"
 	"github.com/promptrails/langrails/llm/cohere"
@@ -58,6 +59,7 @@ const (
 	Hyperbolic  ProviderName = "hyperbolic"
 	DashScope   ProviderName = "dashscope"
 	HuggingFace ProviderName = "huggingface"
+	Bedrock     ProviderName = "bedrock"
 )
 
 // New creates a new LLM provider by name.
@@ -65,6 +67,11 @@ const (
 //	provider, err := llm.New(llm.OpenAI, "sk-...")
 //	provider, err := llm.New(llm.Anthropic, "sk-ant-...")
 //	provider, err := llm.New(llm.Ollama, "")  // no key needed
+//	provider, err := llm.New(llm.Bedrock, "") // uses AWS env credentials
+//
+// Bedrock ignores the apiKey argument and reads region/credentials from the
+// standard AWS environment variables. For explicit configuration (region,
+// static credentials), construct it directly with bedrock.New(...).
 func New(name ProviderName, apiKey string) (langrails.Provider, error) {
 	switch name {
 	case OpenAI:
@@ -115,6 +122,8 @@ func New(name ProviderName, apiKey string) (langrails.Provider, error) {
 		return dashscope.New(apiKey), nil
 	case HuggingFace:
 		return huggingface.New(apiKey), nil
+	case Bedrock:
+		return bedrock.New(), nil
 	default:
 		return nil, fmt.Errorf("langrails: unknown provider %q", name)
 	}
@@ -135,6 +144,6 @@ func AllProviders() []ProviderName {
 		OpenAI, Anthropic, Gemini, DeepSeek, Groq, Fireworks,
 		XAI, OpenRouter, Together, Mistral, Cohere, Perplexity, Ollama,
 		Chutes, ZAI, Moonshot, Novita, DeepInfra, Friendli,
-		Cerebras, SambaNova, Hyperbolic, DashScope, HuggingFace,
+		Cerebras, SambaNova, Hyperbolic, DashScope, HuggingFace, Bedrock,
 	}
 }
