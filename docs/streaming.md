@@ -15,8 +15,14 @@ if err != nil {
 
 for event := range events {
     switch event.Type {
+    case langrails.EventReasoning:
+        fmt.Print(event.Reasoning) // reasoning/thinking chunk (before content)
+
     case langrails.EventContent:
         fmt.Print(event.Content) // Print each chunk as it arrives
+
+    case langrails.EventCitation:
+        fmt.Printf("\n[source] %s\n", event.Citation.URL)
 
     case langrails.EventToolCall:
         fmt.Printf("\nTool call: %s(%s)\n", event.ToolCall.Name, event.ToolCall.Arguments)
@@ -39,10 +45,14 @@ for event := range events {
 
 | Type | Description | Fields |
 |------|-------------|--------|
+| `EventReasoning` | Reasoning/thinking text chunk (emitted before content) | `Reasoning` |
 | `EventContent` | Text content chunk | `Content` |
+| `EventCitation` | A source/citation was emitted | `Citation` |
 | `EventToolCall` | Tool/function call | `ToolCall` (ID, Name, Arguments) |
 | `EventDone` | Stream completed | — |
 | `EventError` | Error occurred | `Error` |
+
+Any event may also carry `Usage` (token counts, typically with the final event).
 
 The `Usage` field may be present on any event type (typically the last content or done event).
 

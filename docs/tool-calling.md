@@ -167,3 +167,20 @@ executor := tools.NewMap(map[string]tools.Func{
 // RunLoop sends {"error": "service unavailable"} back to the model
 // The model will typically acknowledge the error in its response
 ```
+
+## Controlling tool choice
+
+Use `ToolChoice` to control whether and which tool the model calls:
+
+```go
+req.ToolChoice = langrails.AutoToolChoice()     // model decides (default)
+req.ToolChoice = langrails.NoToolChoice()       // forbid tool calls
+req.ToolChoice = langrails.RequiredToolChoice() // must call some tool
+req.ToolChoice = langrails.ForceTool("get_weather") // must call this tool
+```
+
+Supported across OpenAI/compat, Anthropic, Gemini and Bedrock. Notes:
+
+- When `OutputSchema` (structured output) is set, it forces its own tool and
+  takes precedence over `ToolChoice`.
+- Bedrock (Converse) has no "none" mode; `NoToolChoice()` omits tools entirely.

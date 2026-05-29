@@ -200,8 +200,69 @@ resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
 | Provider | Method | Response Field |
 |----------|--------|----------------|
 | Anthropic | `thinking` block with `budget_tokens` | `resp.Thinking` |
-| OpenAI | `reasoning.effort` (low/medium/high) | Not returned |
-| Gemini | Not supported | — |
+| OpenAI | `reasoning.effort` (minimal/low/medium/high) | `resp.Thinking` (reasoning models) |
+| Gemini | `thinkingConfig` (2.5+) | `resp.Thinking` |
+| Bedrock | `reasoning_config` (Claude models) | `resp.Thinking` |
+
+### ReasoningEffort
+
+Provider-agnostic reasoning level — preferred over `Thinking`/`ThinkingBudget`:
+
+```go
+req.ReasoningEffort = langrails.ReasoningHigh // minimal | low | medium | high
+```
+
+See [Reasoning](reasoning.md) for the full per-provider mapping, streaming
+(`EventReasoning`), and `Usage.ReasoningTokens`.
+
+### ToolChoice
+
+Control whether/which tool the model calls:
+
+```go
+req.ToolChoice = langrails.AutoToolChoice()     // model decides (default)
+req.ToolChoice = langrails.NoToolChoice()       // forbid tool calls
+req.ToolChoice = langrails.RequiredToolChoice() // must call some tool
+req.ToolChoice = langrails.ForceTool("search")  // must call this tool
+```
+
+When `OutputSchema` is set, structured output takes precedence over `ToolChoice`.
+Bedrock has no "none" mode — `NoToolChoice()` omits tools entirely there.
+
+### ResponseFormat (JSON mode)
+
+Request valid JSON without a schema (use `OutputSchema` for schema-constrained
+JSON, which takes precedence):
+
+```go
+req.ResponseFormat = langrails.ResponseFormatJSONObject
+```
+
+Supported by OpenAI/compat (`response_format`) and Gemini (`responseMimeType`);
+a no-op on Anthropic/Bedrock.
+
+### ServerTools (web search)
+
+Enable provider-native, server-executed tools such as web search, returning
+sources in `resp.Citations`:
+
+```go
+req.ServerTools = []langrails.ServerTool{
+    langrails.WebSearch(&langrails.WebSearchOptions{MaxUses: 3}),
+}
+```
+
+See [Web Search & Citations](web-search.md).
+
+### CacheControl
+
+Enable provider prompt caching; cached tokens are reported in `Usage`:
+
+```go
+req.CacheControl = true
+```
+
+See [Prompt Caching](caching.md).
 
 ## Full Example
 
@@ -246,9 +307,19 @@ resp, err := provider.Complete(ctx, &langrails.CompletionRequest{
 | Seed | Yes | - | - | Yes | - | - | - | Varies | Yes | - | - |
 | Tools | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
 | Structured Output | Yes | Yes | Yes | Yes | Yes | Varies | Varies | Varies | Varies | Varies | Varies |
+| JSON mode | Yes | - | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| ToolChoice | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
 | Streaming | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
-| Thinking | Yes** | Yes | - | Yes*** | - | - | - | - | - | - | - |
+| ReasoningEffort | Yes** | Yes | Yes | Yes*** | - | - | Yes | Varies | - | - | - |
+| Web search | Yes | Yes | Yes | - | - | - | Yes | Yes | Yes**** | - | - |
+| CacheControl | implicit | Yes | implicit | implicit | - | - | - | implicit | - | - | - |
 
 \* Anthropic requires max_tokens (defaults to 4096)
-\** OpenAI uses reasoning effort for o-series models
-\*** DeepSeek R1 supports thinking via OpenAI-compatible API
+\** OpenAI uses reasoning effort for o-series / reasoning models
+\*** DeepSeek R1 supports reasoning via OpenAI-compatible API
+\**** Perplexity sonar models search implicitly (no flag needed)
+
+Bedrock (Converse) is not shown above: it supports ToolChoice (no "none"),
+reasoning (Claude models), prompt caching (cachePoint) and vision, but not web
+search or JSON mode. See [Providers](providers.md) for the full matrix including
+Bedrock.

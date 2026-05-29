@@ -126,3 +126,16 @@ schema := []byte(`{
 | Cohere | JSON schema mode | Varies |
 | xAI | JSON schema mode | Varies |
 | OpenRouter | JSON schema mode | Depends on underlying model |
+
+## JSON mode (without a schema)
+
+To get valid JSON without constraining it to a schema, set `ResponseFormat`:
+
+```go
+req.ResponseFormat = langrails.ResponseFormatJSONObject
+```
+
+When `OutputSchema` is also set, the schema wins (schema-constrained JSON).
+JSON mode is supported by OpenAI/compat (`response_format`) and Gemini
+(`responseMimeType`); it is a no-op on Anthropic and Bedrock, where you should
+use `OutputSchema` (tool-based) instead.

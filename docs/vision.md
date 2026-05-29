@@ -74,7 +74,12 @@ When `ContentParts` is set, it takes precedence over `Content`.
 | Provider | Vision Support |
 |----------|---------------|
 | OpenAI | Yes (GPT-4o, GPT-4 Turbo) |
-| Anthropic | Yes (Claude 3+) |
-| Gemini | Yes (all models) |
+| Anthropic | Yes (Claude 3+) — base64 or URL |
+| Gemini | Yes (all models) — base64 inline; URLs via File API/GCS |
+| Bedrock | Yes (Claude/Nova) — base64 only (Converse can't fetch URLs) |
 | All compat | Varies by model |
 | Ollama | Yes (llava, bakllava) |
+
+Use `langrails.ImageBase64Part(data, "image/png")` for base64 (most portable) or
+`langrails.ImageURLPart(url)` for a URL. Bedrock supports base64 only; Gemini
+resolves URLs only for File API / Cloud Storage URIs.

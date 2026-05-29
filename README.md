@@ -33,13 +33,16 @@ go get github.com/promptrails/langrails
 
 - **25 providers** — OpenAI, Anthropic, Gemini, DeepSeek, Groq, Fireworks, xAI, OpenRouter, Together, Mistral, Cohere, Perplexity, Ollama, Chutes AI, Z.AI, Moonshot (Kimi), Novita AI, DeepInfra, Friendli AI, Cerebras, SambaNova, Hyperbolic, Alibaba DashScope (Qwen), Hugging Face Router, Amazon Bedrock (Converse API)
 - **Streaming** — Channel-based, idiomatic Go
-- **Tool calling** — Unified interface + automatic tool execution loop
+- **Tool calling** — Unified interface + automatic tool execution loop, with `ToolChoice` control
+- **Reasoning** — Provider-agnostic `ReasoningEffort` (minimal/low/medium/high), reasoning text + token accounting
+- **Web search & citations** — Provider-native search (`ServerTools`) with unified `Citations` in the response
+- **Prompt caching** — `CacheControl` + cached/cache-creation token reporting
 - **Chain** — Sequential multi-step prompt pipelines
 - **Graph** — LangGraph-style stateful workflow engine
 - **MCP** — Model Context Protocol client
 - **A2A** — Agent-to-Agent protocol client + server
-- **Structured output** — JSON schema across all providers
-- **Vision / Multimodal** — Images + text in messages
+- **Structured output** — JSON schema + JSON mode across all providers
+- **Vision / Multimodal** — Images + text in messages (all providers)
 - **Prompt templates** — Jinja-style `{{ variable }}` syntax
 - **Memory** — Conversation history with token limits
 - **Retry & Fallback** — Composable resilience decorators
@@ -53,8 +56,11 @@ go get github.com/promptrails/langrails
 | [Providers](docs/providers.md) | All providers, config examples |
 | [Parameters](docs/parameters.md) | All parameters, provider support matrix |
 | [Streaming](docs/streaming.md) | Real-time token streaming |
+| [Reasoning](docs/reasoning.md) | Reasoning effort, thinking output, tokens |
+| [Web Search & Citations](docs/web-search.md) | Provider-native search + citations |
+| [Prompt Caching](docs/caching.md) | Cache control + cached-token reporting |
 | [Vision / Multimodal](docs/vision.md) | Images + text in messages |
-| [Structured Output](docs/structured-output.md) | JSON schema constrained output |
+| [Structured Output](docs/structured-output.md) | JSON schema + JSON mode |
 | [Prompt Templates](docs/prompt-templates.md) | Jinja-style variable substitution |
 | [Memory](docs/memory.md) | Conversation history management |
 | [Tool Calling](docs/tool-calling.md) | Function calling + automatic tool loop |

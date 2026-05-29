@@ -50,16 +50,24 @@ For provider-specific options (custom base URL, HTTP client), use the direct imp
 
 ## Feature Matrix
 
-| Feature | OpenAI | Anthropic | Gemini | Compat* |
-|---------|--------|-----------|--------|---------|
-| Streaming | Yes | Yes | Yes | Yes |
-| Tool calling | Yes | Yes | Yes | Yes |
-| Structured output | Yes (JSON schema) | Yes (tool-based) | Yes (responseSchema) | Yes (JSON schema) |
-| Vision | Yes | Yes | Yes | Varies |
-| System prompt | message | separate field | systemInstruction | message |
-| Max tokens default | provider default | 4096 (required) | provider default | provider default |
+| Feature | OpenAI | Anthropic | Gemini | Bedrock | Compat* |
+|---------|--------|-----------|--------|---------|---------|
+| Streaming | Yes | Yes | Yes | Yes | Yes |
+| Tool calling | Yes | Yes | Yes | Yes | Yes |
+| Tool choice | Yes | Yes | Yes | auto/required/tool (no none) | Yes |
+| Structured output | Yes (JSON schema) | Yes (tool-based) | Yes (responseSchema) | Yes (tool-based) | Yes (JSON schema) |
+| JSON mode | Yes | No | Yes | No | Yes |
+| Reasoning | effort | effort/budget | effort/budget | effort/budget | effort (varies) |
+| Web search | Yes (web_search) | Yes (web_search) | Yes (googleSearch) | No | Perplexity/online |
+| Citations | Yes | Yes | Yes | No | Perplexity/OpenRouter |
+| Prompt caching | implicit | cache_control | implicit | cachePoint | implicit (varies) |
+| Vision | Yes | Yes | Yes | Yes (base64) | Varies |
+| System prompt | message | separate field | systemInstruction | separate field | message |
+| Max tokens default | provider default | 4096 (required) | provider default | 4096 | provider default |
 
 *Compat = DeepSeek, Groq, Fireworks, xAI, OpenRouter, Together, Mistral, Cohere, Perplexity, Ollama, Chutes, Z.AI, Moonshot, Novita, DeepInfra, Friendli, Cerebras, SambaNova, Hyperbolic, DashScope, Hugging Face Router
+
+Reasoning, web search, citations and caching behavior varies across compat providers; see [Reasoning](reasoning.md), [Web Search & Citations](web-search.md) and [Prompt Caching](caching.md) for details.
 
 ## OpenAI
 
