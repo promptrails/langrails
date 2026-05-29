@@ -344,7 +344,7 @@ func TestProvider_Reasoning(t *testing.T) {
 		if len(req.AdditionalModelRequestFields) == 0 {
 			t.Fatal("expected additionalModelRequestFields for reasoning")
 		}
-		if !strings.Contains(string(req.AdditionalModelRequestFields), "reasoning_config") {
+		if !strings.Contains(string(req.AdditionalModelRequestFields), `"thinking"`) {
 			t.Errorf("additionalModelRequestFields = %s", req.AdditionalModelRequestFields)
 		}
 		if !strings.Contains(string(req.AdditionalModelRequestFields), "16384") {

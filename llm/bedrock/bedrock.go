@@ -300,7 +300,8 @@ func buildRequestBody(req *langrails.CompletionRequest) ([]byte, error) {
 	r.InferenceConfig = ic
 
 	// Reasoning. Carried via additionalModelRequestFields (model-family specific;
-	// the reasoning_config form is for Anthropic Claude models on Bedrock).
+	// the thinking form is for Anthropic Claude models on Bedrock — it mirrors
+	// Anthropic's native thinking field passed through Converse).
 	if req.Thinking || req.ReasoningEffort != "" {
 		budget := 0
 		if req.ThinkingBudget != nil {
@@ -312,7 +313,7 @@ func buildRequestBody(req *langrails.CompletionRequest) ([]byte, error) {
 			budget = 10000
 		}
 		r.AdditionalModelRequestFields = json.RawMessage(
-			fmt.Sprintf(`{"reasoning_config":{"type":"enabled","budget_tokens":%d}}`, budget))
+			fmt.Sprintf(`{"thinking":{"type":"enabled","budget_tokens":%d}}`, budget))
 	}
 
 	var tools []toolEntry
