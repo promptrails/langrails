@@ -269,6 +269,58 @@ func TestProvider_ToolChoice(t *testing.T) {
 	}
 }
 
+func TestProvider_GroundingCitations(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		var hasSearch bool
+		for _, tl := range req.Tools {
+			if tl.GoogleSearch != nil {
+				hasSearch = true
+			}
+		}
+		if !hasSearch {
+			t.Errorf("expected googleSearch tool, got %+v", req.Tools)
+		}
+		resp := response{
+			Candidates: []candidate{{
+				Content:      content{Parts: []part{{Text: "grounded answer"}}},
+				FinishReason: "STOP",
+				GroundingMetadata: &groundingMetadata{GroundingChunks: []struct {
+					Web *struct {
+						URI   string `json:"uri"`
+						Title string `json:"title"`
+					} `json:"web,omitempty"`
+				}{
+					{Web: &struct {
+						URI   string `json:"uri"`
+						Title string `json:"title"`
+					}{URI: "https://src.com", Title: "Source"}},
+				}},
+			}},
+			UsageMetadata: &usageMetadata{CachedContentTokenCount: 42},
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	provider := New("key", WithBaseURL(server.URL))
+	resp, err := provider.Complete(context.Background(), &langrails.CompletionRequest{
+		Model:       "gemini-2.0-flash",
+		Messages:    []langrails.Message{{Role: "user", Content: "latest?"}},
+		ServerTools: []langrails.ServerTool{langrails.WebSearch(nil)},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resp.Citations) != 1 || resp.Citations[0].URL != "https://src.com" {
+		t.Errorf("citations = %+v", resp.Citations)
+	}
+	if resp.Usage.CachedTokens != 42 {
+		t.Errorf("CachedTokens = %d, want 42", resp.Usage.CachedTokens)
+	}
+}
+
 func TestProvider_Vision(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req request

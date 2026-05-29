@@ -273,6 +273,11 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest) ([]byte, e
 	if len(req.Tools) > 0 {
 		r.Tools = convertTools(req.Tools)
 	}
+	for _, st := range req.ServerTools {
+		if st.Type == langrails.ServerToolWebSearch {
+			r.Tools = append(r.Tools, toolDeclaration{GoogleSearch: &struct{}{}})
+		}
+	}
 	if tc := convertToolChoice(req.ToolChoice); tc != nil {
 		r.ToolConfig = tc
 	}
@@ -312,12 +317,14 @@ func (p *Provider) parseResponse(resp *response) *langrails.CompletionResponse {
 			CompletionTokens: resp.UsageMetadata.CandidatesTokenCount,
 			TotalTokens:      resp.UsageMetadata.TotalTokenCount,
 			ReasoningTokens:  resp.UsageMetadata.ThoughtsTokenCount,
+			CachedTokens:     resp.UsageMetadata.CachedContentTokenCount,
 		}
 	}
 
 	if len(resp.Candidates) > 0 {
 		candidate := resp.Candidates[0]
 		result.FinishReason = candidate.FinishReason
+		result.Citations = append(result.Citations, groundingCitations(candidate.GroundingMetadata)...)
 
 		for _, part := range candidate.Content.Parts {
 			if part.Text != "" {
@@ -420,6 +427,23 @@ func convertContentParts(m langrails.Message) []part {
 		}
 	}
 	return parts
+}
+
+// groundingCitations extracts citations from Gemini grounding metadata.
+func groundingCitations(gm *groundingMetadata) []langrails.Citation {
+	if gm == nil {
+		return nil
+	}
+	var citations []langrails.Citation
+	for _, chunk := range gm.GroundingChunks {
+		if chunk.Web != nil {
+			citations = append(citations, langrails.Citation{
+				URL:   chunk.Web.URI,
+				Title: chunk.Web.Title,
+			})
+		}
+	}
+	return citations
 }
 
 func convertTools(tools []langrails.ToolDefinition) []toolDeclaration {

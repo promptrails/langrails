@@ -73,7 +73,8 @@ type thinkingConfig struct {
 }
 
 type toolDeclaration struct {
-	FunctionDeclarations []functionDecl `json:"functionDeclarations"`
+	FunctionDeclarations []functionDecl `json:"functionDeclarations,omitempty"`
+	GoogleSearch         *struct{}      `json:"googleSearch,omitempty"`
 }
 
 type functionDecl struct {
@@ -90,15 +91,26 @@ type response struct {
 }
 
 type candidate struct {
-	Content      content `json:"content"`
-	FinishReason string  `json:"finishReason"`
+	Content           content            `json:"content"`
+	FinishReason      string             `json:"finishReason"`
+	GroundingMetadata *groundingMetadata `json:"groundingMetadata,omitempty"`
+}
+
+type groundingMetadata struct {
+	GroundingChunks []struct {
+		Web *struct {
+			URI   string `json:"uri"`
+			Title string `json:"title"`
+		} `json:"web,omitempty"`
+	} `json:"groundingChunks,omitempty"`
 }
 
 type usageMetadata struct {
-	PromptTokenCount     int `json:"promptTokenCount"`
-	CandidatesTokenCount int `json:"candidatesTokenCount"`
-	TotalTokenCount      int `json:"totalTokenCount"`
-	ThoughtsTokenCount   int `json:"thoughtsTokenCount,omitempty"`
+	PromptTokenCount        int `json:"promptTokenCount"`
+	CandidatesTokenCount    int `json:"candidatesTokenCount"`
+	TotalTokenCount         int `json:"totalTokenCount"`
+	ThoughtsTokenCount      int `json:"thoughtsTokenCount,omitempty"`
+	CachedContentTokenCount int `json:"cachedContentTokenCount,omitempty"`
 }
 
 // Error response
