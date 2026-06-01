@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/promptrails/langrails"
 )
@@ -564,6 +565,113 @@ func TestProvider_Stream_Reasoning(t *testing.T) {
 	}
 	if content != "answer" {
 		t.Errorf("content = %q", content)
+	}
+}
+
+func TestProvider_Stream_RespectsCanceledContext(t *testing.T) {
+	provider := New(Config{Name: "test", BaseURL: "http://127.0.0.1:1", APIKey: "key"})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := provider.Stream(ctx, &langrails.CompletionRequest{
+		Model:    "test",
+		Messages: []langrails.Message{{Role: "user", Content: "hi"}},
+	})
+	if err == nil {
+		t.Error("expected error from cancelled context")
+	}
+}
+
+func TestProvider_Stream_WithoutDONE(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher := w.(http.Flusher)
+		chunks := []string{
+			`{"choices":[{"delta":{"content":"hello"},"finish_reason":""}]}`,
+			`{"choices":[{"delta":{},"finish_reason":"stop"}]}`,
+		}
+		for _, c := range chunks {
+			_, _ = w.Write([]byte("data: " + c + "\n\n"))
+			flusher.Flush()
+		}
+		// No [DONE] event - connection just closes
+	}))
+	defer server.Close()
+
+	provider := New(Config{Name: "test", BaseURL: server.URL, APIKey: "key"})
+	ch, err := provider.Stream(context.Background(), &langrails.CompletionRequest{
+		Model:    "test",
+		Messages: []langrails.Message{{Role: "user", Content: "hi"}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var content string
+	var gotDone bool
+	for ev := range ch {
+		switch ev.Type {
+		case langrails.EventContent:
+			content += ev.Content
+		case langrails.EventDone:
+			gotDone = true
+		}
+	}
+	if content != "hello" {
+		t.Errorf("content = %q", content)
+	}
+	if !gotDone {
+		t.Error("expected EventDone even without [DONE] marker")
+	}
+}
+
+func TestProvider_Stream_CancelMidStream(t *testing.T) {
+	// The server sends one event then blocks, so the stream can only
+	// terminate via context cancellation, exercising the in-loop
+	// ctx.Done() check in readStream.
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher := w.(http.Flusher)
+		_, _ = w.Write([]byte("data: " + `{"choices":[{"delta":{"content":"first"},"finish_reason":""}]}` + "\n\n"))
+		flusher.Flush()
+		<-release
+	}))
+	defer server.Close()
+	defer close(release)
+
+	provider := New(Config{Name: "test", BaseURL: server.URL, APIKey: "key"})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch, err := provider.Stream(ctx, &langrails.CompletionRequest{
+		Model:    "test",
+		Messages: []langrails.Message{{Role: "user", Content: "hi"}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	first, ok := <-ch
+	if !ok {
+		t.Fatal("expected at least one event before cancellation")
+	}
+	if first.Content != "first" {
+		t.Errorf("content = %q, want %q", first.Content, "first")
+	}
+	cancel()
+
+	// The channel must close promptly once the context is cancelled.
+	closed := make(chan struct{})
+	go func() {
+		for range ch {
+		}
+		close(closed)
+	}()
+	select {
+	case <-closed:
+	case <-time.After(2 * time.Second):
+		t.Fatal("stream did not terminate after context cancellation")
 	}
 }
 

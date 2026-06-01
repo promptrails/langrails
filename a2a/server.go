@@ -93,9 +93,9 @@ func (h *Handler) dispatch(w http.ResponseWriter, r *http.Request) {
 	case "message/stream":
 		h.handleStreamMessage(w, r, req)
 	case "tasks/get":
-		h.handleGetTask(w, req)
+		h.handleGetTask(r.Context(), w, req)
 	case "tasks/cancel":
-		h.handleCancelTask(w, req)
+		h.handleCancelTask(r.Context(), w, req)
 	default:
 		writeJSONRPCError(w, req.ID, ErrCodeMethodNotFound, fmt.Sprintf("unknown method: %s", req.Method))
 	}
@@ -168,14 +168,14 @@ func (h *Handler) handleStreamMessage(w http.ResponseWriter, r *http.Request, re
 	flusher.Flush()
 }
 
-func (h *Handler) handleGetTask(w http.ResponseWriter, req JSONRPCRequest) {
+func (h *Handler) handleGetTask(ctx context.Context, w http.ResponseWriter, req JSONRPCRequest) {
 	var params GetTaskRequest
 	if err := json.Unmarshal(req.Params, &params); err != nil {
 		writeJSONRPCError(w, req.ID, ErrCodeInvalidParams, "invalid params")
 		return
 	}
 
-	task, err := h.taskHandler.GetTask(context.Background(), params.ID)
+	task, err := h.taskHandler.GetTask(ctx, params.ID)
 	if err != nil {
 		writeError(w, req.ID, err)
 		return
@@ -184,14 +184,14 @@ func (h *Handler) handleGetTask(w http.ResponseWriter, req JSONRPCRequest) {
 	writeJSONRPCResult(w, req.ID, task)
 }
 
-func (h *Handler) handleCancelTask(w http.ResponseWriter, req JSONRPCRequest) {
+func (h *Handler) handleCancelTask(ctx context.Context, w http.ResponseWriter, req JSONRPCRequest) {
 	var params CancelTaskRequest
 	if err := json.Unmarshal(req.Params, &params); err != nil {
 		writeJSONRPCError(w, req.ID, ErrCodeInvalidParams, "invalid params")
 		return
 	}
 
-	task, err := h.taskHandler.CancelTask(context.Background(), params.ID)
+	task, err := h.taskHandler.CancelTask(ctx, params.ID)
 	if err != nil {
 		writeError(w, req.ID, err)
 		return

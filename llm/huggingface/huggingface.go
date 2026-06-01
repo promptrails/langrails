@@ -36,10 +36,12 @@ func New(apiKey string, opts ...Option) *Provider {
 	return &Provider{inner: compat.New(cfg)}
 }
 
+// Complete sends a completion request and returns the full response.
 func (p *Provider) Complete(ctx context.Context, req *langrails.CompletionRequest) (*langrails.CompletionResponse, error) {
 	return p.inner.Complete(ctx, req)
 }
 
+// Stream sends a completion request and returns a channel of streaming events.
 func (p *Provider) Stream(ctx context.Context, req *langrails.CompletionRequest) (<-chan langrails.StreamEvent, error) {
 	return p.inner.Stream(ctx, req)
 }

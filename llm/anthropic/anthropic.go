@@ -95,7 +95,7 @@ func (p *Provider) Stream(ctx context.Context, req *langrails.CompletionRequest)
 	}
 
 	ch := make(chan langrails.StreamEvent, 64)
-	go p.readStream(respBody, ch)
+	go p.readStream(ctx, respBody, ch)
 	return ch, nil
 }
 
@@ -134,7 +134,7 @@ func (p *Provider) doRequest(ctx context.Context, body []byte) (io.ReadCloser, e
 	return resp.Body, nil
 }
 
-func (p *Provider) readStream(body io.ReadCloser, ch chan<- langrails.StreamEvent) {
+func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<- langrails.StreamEvent) {
 	defer close(ch)
 	defer body.Close()
 
@@ -143,6 +143,12 @@ func (p *Provider) readStream(body io.ReadCloser, ch chan<- langrails.StreamEven
 	var currentToolIndex int = -1
 
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		event, ok := reader.Next()
 		if !ok {
 			break
@@ -192,9 +198,11 @@ func (p *Provider) readStream(body io.ReadCloser, ch chan<- langrails.StreamEven
 			if se.Usage != nil {
 				ch <- langrails.StreamEvent{
 					Usage: &langrails.TokenUsage{
-						PromptTokens:     se.Usage.InputTokens,
-						CompletionTokens: se.Usage.OutputTokens,
-						TotalTokens:      se.Usage.InputTokens + se.Usage.OutputTokens,
+						PromptTokens:        se.Usage.InputTokens,
+						CompletionTokens:    se.Usage.OutputTokens,
+						TotalTokens:         se.Usage.InputTokens + se.Usage.OutputTokens,
+						CachedTokens:        se.Usage.CacheReadInputTokens,
+						CacheCreationTokens: se.Usage.CacheCreationInputTokens,
 					},
 				}
 			}

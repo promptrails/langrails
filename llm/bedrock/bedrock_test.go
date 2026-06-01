@@ -379,6 +379,52 @@ func TestProvider_Reasoning(t *testing.T) {
 	}
 }
 
+func TestProvider_Stream_RespectsCanceledContext(t *testing.T) {
+	p := testProvider("http://127.0.0.1:1")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := p.Stream(ctx, &langrails.CompletionRequest{
+		Model:    "anthropic.claude",
+		Messages: []langrails.Message{{Role: "user", Content: "hi"}},
+	})
+	if err == nil {
+		t.Error("expected error from cancelled context")
+	}
+}
+
+func TestProvider_Stream_Exception(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/vnd.amazon.eventstream")
+		var stream bytes.Buffer
+		stream.Write(frame(map[string]string{
+			":message-type":   "exception",
+			":exception-type": "ValidationError",
+		}, []byte(`{"message":"invalid model"}`)))
+		_, _ = w.Write(stream.Bytes())
+	}))
+	defer server.Close()
+
+	p := testProvider(server.URL)
+	ch, err := p.Stream(context.Background(), &langrails.CompletionRequest{
+		Model:    "nonexistent",
+		Messages: []langrails.Message{{Role: "user", Content: "hi"}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var gotError bool
+	for ev := range ch {
+		if ev.Type == langrails.EventError {
+			gotError = true
+		}
+	}
+	if !gotError {
+		t.Error("expected EventError for stream exception")
+	}
+}
+
 func TestProvider_Stream_Reasoning(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		var stream bytes.Buffer

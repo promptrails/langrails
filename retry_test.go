@@ -163,6 +163,34 @@ func TestRetryProvider_Stream_Success(t *testing.T) {
 	}
 }
 
+func TestRetryProvider_RespectsContextCancellationDuringBackoff(t *testing.T) {
+	inner := &mockProvider{
+		completeFunc: func(_ context.Context, _ *CompletionRequest) (*CompletionResponse, error) {
+			return nil, &APIError{StatusCode: 500, Message: "server error", Provider: "test"}
+		},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+
+	provider := WithRetry(inner, 3, WithBaseDelay(5*time.Second))
+
+	go func() {
+		_, err := provider.Complete(ctx, &CompletionRequest{})
+		errCh <- err
+	}()
+
+	cancel()
+	select {
+	case err := <-errCh:
+		if err == nil {
+			t.Error("expected error from cancelled context")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("retry did not abort promptly after context cancellation")
+	}
+}
+
 func TestRetryProvider_Stream_RetriesOnError(t *testing.T) {
 	calls := 0
 	ch := make(chan StreamEvent, 1)

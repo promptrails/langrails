@@ -376,6 +376,20 @@ func TestProvider_Vision(t *testing.T) {
 	}
 }
 
+func TestProvider_Stream_RespectsCanceledContext(t *testing.T) {
+	p := New("key", WithBaseURL("http://127.0.0.1:1"))
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := p.Stream(ctx, &langrails.CompletionRequest{
+		Model:    "gemini-2.0-flash",
+		Messages: []langrails.Message{{Role: "user", Content: "hi"}},
+	})
+	if err == nil {
+		t.Error("expected error from cancelled context")
+	}
+}
+
 func TestProvider_Reasoning(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req request

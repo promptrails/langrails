@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/promptrails/langrails"
 )
@@ -441,6 +442,66 @@ func TestProvider_Vision(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestProvider_Stream_CachedTokens(t *testing.T) {
+	server := newMockServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher := w.(http.Flusher)
+
+		events := []string{
+			`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hello"}}`,
+			`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"input_tokens":10,"output_tokens":5,"cache_read_input_tokens":100,"cache_creation_input_tokens":20}}`,
+			`{"type":"message_stop"}`,
+		}
+		for _, e := range events {
+			_, _ = w.Write([]byte("data: " + e + "\n\n"))
+			flusher.Flush()
+		}
+	})
+	defer server.Close()
+
+	p := New("key", WithBaseURL(server.URL))
+	ch, err := p.Stream(context.Background(), &langrails.CompletionRequest{
+		Model:        "claude",
+		Messages:     []langrails.Message{{Role: "user", Content: "hi"}},
+		CacheControl: true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var usage *langrails.TokenUsage
+	for ev := range ch {
+		if ev.Usage != nil {
+			usage = ev.Usage
+		}
+	}
+	if usage == nil {
+		t.Fatal("expected usage event")
+	}
+	if usage.CachedTokens != 100 {
+		t.Errorf("CachedTokens = %d, want 100", usage.CachedTokens)
+	}
+	if usage.CacheCreationTokens != 20 {
+		t.Errorf("CacheCreationTokens = %d, want 20", usage.CacheCreationTokens)
+	}
+}
+
+func TestProvider_Stream_RespectsCanceledContext(t *testing.T) {
+	// A cancelled context should cause Stream to return an error before
+	// issuing the HTTP request.
+	p := New("key", WithHTTPClient(&http.Client{Timeout: time.Second}))
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := p.Stream(ctx, &langrails.CompletionRequest{
+		Model:    "claude",
+		Messages: []langrails.Message{{Role: "user", Content: "hi"}},
+	})
+	if err == nil {
+		t.Error("expected error from cancelled context")
 	}
 }
 

@@ -102,10 +102,14 @@ func (c *Client) SendMessage(ctx context.Context, req SendMessageRequest) (*Task
 // StreamMessage sends a message and returns a channel of streaming events.
 // This is the message/stream JSON-RPC method.
 func (c *Client) StreamMessage(ctx context.Context, req SendMessageRequest) (<-chan StreamEvent, error) {
+	params, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("a2a: failed to marshal params: %w", err)
+	}
 	body, err := json.Marshal(JSONRPCRequest{
 		JSONRPC: "2.0",
 		Method:  "message/stream",
-		Params:  mustMarshal(req),
+		Params:  params,
 		ID:      1,
 	})
 	if err != nil {
@@ -165,10 +169,14 @@ func (c *Client) CancelTask(ctx context.Context, taskID string) (*Task, error) {
 }
 
 func (c *Client) call(ctx context.Context, method string, params any) (json.RawMessage, error) {
+	p, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("a2a: failed to marshal params: %w", err)
+	}
 	body, err := json.Marshal(JSONRPCRequest{
 		JSONRPC: "2.0",
 		Method:  method,
-		Params:  mustMarshal(params),
+		Params:  p,
 		ID:      1,
 	})
 	if err != nil {
@@ -286,9 +294,4 @@ func (c *Client) readStream(body io.ReadCloser, ch chan<- StreamEvent) {
 			}
 		}
 	}
-}
-
-func mustMarshal(v any) json.RawMessage {
-	b, _ := json.Marshal(v)
-	return b
 }

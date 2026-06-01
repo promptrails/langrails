@@ -97,7 +97,7 @@ func (p *Provider) Stream(ctx context.Context, req *langrails.CompletionRequest)
 	}
 
 	ch := make(chan langrails.StreamEvent, 64)
-	go p.readStream(respBody, ch)
+	go p.readStream(ctx, respBody, ch)
 	return ch, nil
 }
 
@@ -134,13 +134,19 @@ func (p *Provider) doRequest(ctx context.Context, url string, body []byte) (io.R
 	return resp.Body, nil
 }
 
-func (p *Provider) readStream(body io.ReadCloser, ch chan<- langrails.StreamEvent) {
+func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<- langrails.StreamEvent) {
 	defer close(ch)
 	defer body.Close()
 
 	reader := sse.NewReader(body)
 
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		event, ok := reader.Next()
 		if !ok {
 			break

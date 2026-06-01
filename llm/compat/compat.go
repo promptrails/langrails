@@ -85,7 +85,7 @@ func (p *Provider) Stream(ctx context.Context, req *langrails.CompletionRequest)
 	}
 
 	ch := make(chan langrails.StreamEvent, 64)
-	go p.readStream(respBody, ch)
+	go p.readStream(ctx, respBody, ch)
 	return ch, nil
 }
 
@@ -126,7 +126,7 @@ func (p *Provider) doRequest(ctx context.Context, body []byte) (io.ReadCloser, e
 	return resp.Body, nil
 }
 
-func (p *Provider) readStream(body io.ReadCloser, ch chan<- langrails.StreamEvent) {
+func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<- langrails.StreamEvent) {
 	defer close(ch)
 	defer body.Close()
 
@@ -134,6 +134,12 @@ func (p *Provider) readStream(body io.ReadCloser, ch chan<- langrails.StreamEven
 	var pendingToolCalls []langrails.ToolCall
 
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		event, ok := reader.Next()
 		if !ok {
 			break
@@ -279,6 +285,12 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream boo
 	// Built-in web search (OpenAI web_search_options). Other compat providers
 	// (e.g. Perplexity sonar) search implicitly by model and ignore this field
 	// but still return citations, which are parsed in parseResponse.
+	//
+	// Note: The unified WebSearchOptions fields (MaxUses, AllowedDomains,
+	// BlockedDomains, UserLocation) are Anthropic/Gemini-specific and have no
+	// equivalent in the OpenAI-compatible web_search_options endpoint. They
+	// are silently ignored here; only the presence of a web search server tool
+	// is honoured (enabling the provider's built-in search).
 	if hasWebSearch(req.ServerTools) {
 		oaiReq.WebSearchOptions = &webSearchOptions{}
 	}

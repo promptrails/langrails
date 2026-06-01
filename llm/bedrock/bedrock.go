@@ -131,7 +131,7 @@ func (p *Provider) Stream(ctx context.Context, req *langrails.CompletionRequest)
 	}
 
 	ch := make(chan langrails.StreamEvent, 64)
-	go readStream(respBody, ch)
+	go readStream(ctx, respBody, ch)
 	return ch, nil
 }
 
@@ -183,7 +183,7 @@ func (p *Provider) doRequest(ctx context.Context, modelID, action string, body [
 	return resp.Body, nil
 }
 
-func readStream(body io.ReadCloser, ch chan<- langrails.StreamEvent) {
+func readStream(ctx context.Context, body io.ReadCloser, ch chan<- langrails.StreamEvent) {
 	defer close(ch)
 	defer body.Close()
 
@@ -197,6 +197,12 @@ func readStream(body io.ReadCloser, ch chan<- langrails.StreamEvent) {
 	var order []int
 
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		msg, err := dec.Next()
 		if err == io.EOF {
 			break

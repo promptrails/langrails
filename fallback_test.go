@@ -127,6 +127,38 @@ func TestFallbackProvider_Stream_UsesPrimary(t *testing.T) {
 	}
 }
 
+func TestFallbackProvider_RespectsCanceledContext(t *testing.T) {
+	called := false
+	primary := &mockProvider{
+		completeFunc: func(_ context.Context, _ *CompletionRequest) (*CompletionResponse, error) {
+			return nil, errors.New("primary failed")
+		},
+	}
+	fallback := &mockProvider{
+		completeFunc: func(ctx context.Context, _ *CompletionRequest) (*CompletionResponse, error) {
+			called = true
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			default:
+				return &CompletionResponse{Content: "fallback"}, nil
+			}
+		},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	provider := WithFallback(primary, fallback)
+	_, err := provider.Complete(ctx, &CompletionRequest{})
+	if err == nil {
+		t.Fatal("expected error from cancelled context")
+	}
+	if called {
+		t.Error("fallback should not have been called when context is already cancelled")
+	}
+}
+
 func TestFallbackProvider_Stream_FallsBack(t *testing.T) {
 	ch := make(chan StreamEvent, 1)
 	ch <- StreamEvent{Type: EventContent, Content: "fallback"}
