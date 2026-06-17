@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/promptrails/langrails"
@@ -182,10 +183,17 @@ func TestProvider_Stream(t *testing.T) {
 }
 
 func TestProvider_ConvertMessages(t *testing.T) {
+	// A signed (Gemini-origin) tool call keeps its functionCall / functionResponse
+	// parts.
 	req := &langrails.CompletionRequest{
 		Messages: []langrails.Message{
 			{Role: "user", Content: "Weather?"},
-			{Role: "assistant", ToolCalls: []langrails.ToolCall{{Name: "get_weather", Arguments: `{"city":"Istanbul"}`}}},
+			{Role: "assistant", ToolCalls: []langrails.ToolCall{{
+				ID:        "get_weather",
+				Name:      "get_weather",
+				Arguments: `{"city":"Istanbul"}`,
+				Metadata:  map[string]string{"thoughtSignature": "sig-abc"},
+			}}},
 			{Role: "tool", ToolCallID: "get_weather", Content: `{"temp":22}`},
 		},
 	}
@@ -196,8 +204,71 @@ func TestProvider_ConvertMessages(t *testing.T) {
 	if msgs[1].Role != "model" {
 		t.Errorf("expected 'model' role for assistant, got %q", msgs[1].Role)
 	}
+	if msgs[1].Parts[0].FunctionCall == nil || msgs[1].Parts[0].FunctionCall.ThoughtSignature != "sig-abc" {
+		t.Error("expected functionCall with thoughtSignature for signed tool call")
+	}
 	if msgs[2].Parts[0].FunctionResponse == nil {
 		t.Error("expected functionResponse for tool message")
+	}
+}
+
+// Tool calls that carry NO thoughtSignature (e.g. produced by a fallback model
+// or a mid-conversation model switch) must be rendered as text, not functionCall
+// parts — otherwise Gemini 2.5+ rejects the whole request with "Function call is
+// missing a thought_signature". Their results are textified too so nothing is a
+// dangling functionResponse.
+func TestProvider_ConvertMessages_UnsignedToolCallsTextified(t *testing.T) {
+	req := &langrails.CompletionRequest{
+		Messages: []langrails.Message{
+			{Role: "user", Content: "List my data sources"},
+			{Role: "assistant", ToolCalls: []langrails.ToolCall{{
+				ID:        "call_1",
+				Name:      "list_data_sources",
+				Arguments: `{}`,
+				// no Metadata → unsigned (came from a non-Gemini model)
+			}}},
+			{Role: "tool", ToolCallID: "call_1", Content: `{"sources":["pg"]}`},
+		},
+	}
+	msgs := convertMessages(req)
+	if len(msgs) != 3 {
+		t.Fatalf("expected 3 messages, got %d", len(msgs))
+	}
+	// Assistant turn: text, no functionCall.
+	if msgs[1].Parts[0].FunctionCall != nil {
+		t.Error("unsigned tool call must NOT be a functionCall part")
+	}
+	if !strings.Contains(msgs[1].Parts[0].Text, "list_data_sources") {
+		t.Errorf("expected the call rendered as text, got %q", msgs[1].Parts[0].Text)
+	}
+	// Tool result: text, no functionResponse (else it dangles).
+	if msgs[2].Parts[0].FunctionResponse != nil {
+		t.Error("result of an unsigned call must NOT be a functionResponse part")
+	}
+	if !strings.Contains(msgs[2].Parts[0].Text, "pg") {
+		t.Errorf("expected the result rendered as text, got %q", msgs[2].Parts[0].Text)
+	}
+}
+
+// A genuine Gemini PARALLEL turn signs only its first call; the others are
+// unsigned but must stay functionCall parts (turnIsSigned is true for the turn).
+func TestProvider_ConvertMessages_ParallelKeepsFunctionCalls(t *testing.T) {
+	req := &langrails.CompletionRequest{
+		Messages: []langrails.Message{
+			{Role: "assistant", ToolCalls: []langrails.ToolCall{
+				{ID: "a", Name: "first", Arguments: `{}`, Metadata: map[string]string{"thoughtSignature": "sig"}},
+				{ID: "b", Name: "second", Arguments: `{}`}, // unsigned secondary parallel call
+			}},
+		},
+	}
+	msgs := convertMessages(req)
+	if len(msgs[0].Parts) != 2 {
+		t.Fatalf("expected 2 functionCall parts, got %d", len(msgs[0].Parts))
+	}
+	for i, p := range msgs[0].Parts {
+		if p.FunctionCall == nil {
+			t.Errorf("part %d: expected functionCall (parallel turn is signed), got %+v", i, p)
+		}
 	}
 }
 

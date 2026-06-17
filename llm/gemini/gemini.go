@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/promptrails/langrails"
 	"github.com/promptrails/langrails/internal/mediautil"
@@ -364,6 +365,28 @@ func (p *Provider) parseResponse(resp *response) *langrails.CompletionResponse {
 }
 
 func convertMessages(req *langrails.CompletionRequest) []content {
+	// Gemini 2.5+ REQUIRES a thoughtSignature on every functionCall part it is
+	// sent; replaying a functionCall without one fails the whole request with
+	// "Function call is missing a thought_signature". Only Gemini (with thinking)
+	// produces these signatures — so tool calls that originated from a DIFFERENT
+	// model in the same conversation (a fallback model, or a mid-conversation
+	// model switch) carry none, and feeding that history back to Gemini hard-400s.
+	//
+	// When an assistant turn's tool calls are ALL unsigned (i.e. it did not come
+	// from Gemini), render its calls — and their results — as plain TEXT instead
+	// of functionCall/functionResponse parts. Gemini then accepts the history and
+	// the model still sees what was called and what came back. A genuine Gemini
+	// parallel turn is untouched: its first call carries the signature, so
+	// turnIsSigned is true and we keep the functionCall parts.
+	textified := map[string]bool{}
+	for _, m := range req.Messages {
+		if len(m.ToolCalls) > 0 && !turnIsSigned(m.ToolCalls) {
+			for _, tc := range m.ToolCalls {
+				textified[toolCallKey(tc)] = true
+			}
+		}
+	}
+
 	var contents []content
 
 	for _, m := range req.Messages {
@@ -376,6 +399,13 @@ func convertMessages(req *langrails.CompletionRequest) []content {
 
 		switch {
 		case m.Role == "tool":
+			// Result of an unsigned (non-Gemini) call → text, so it pairs with the
+			// textified call above instead of a dangling functionResponse.
+			if textified[m.ToolCallID] {
+				c.Role = "user"
+				c.Parts = []part{{Text: fmt.Sprintf("Result of tool `%s`:\n%s", m.ToolCallID, m.Content)}}
+				break
+			}
 			// Tool results in Gemini are user messages with functionResponse
 			var respData map[string]interface{}
 			_ = json.Unmarshal([]byte(m.Content), &respData)
@@ -389,6 +419,18 @@ func convertMessages(req *langrails.CompletionRequest) []content {
 					Response: respData,
 				},
 			}}
+		case len(m.ToolCalls) > 0 && !turnIsSigned(m.ToolCalls):
+			// Unsigned tool calls (non-Gemini origin) → text, so Gemini doesn't
+			// reject the missing thoughtSignature.
+			var b strings.Builder
+			if m.Content != "" {
+				b.WriteString(m.Content)
+				b.WriteString("\n")
+			}
+			for _, tc := range m.ToolCalls {
+				fmt.Fprintf(&b, "Called tool `%s` with arguments: %s\n", tc.Name, tc.Arguments)
+			}
+			c.Parts = []part{{Text: strings.TrimSpace(b.String())}}
 		case len(m.ToolCalls) > 0:
 			for _, tc := range m.ToolCalls {
 				var args map[string]interface{}
@@ -414,6 +456,28 @@ func convertMessages(req *langrails.CompletionRequest) []content {
 	}
 
 	return contents
+}
+
+// turnIsSigned reports whether any tool call in an assistant turn carries a
+// Gemini thoughtSignature. For a genuine Gemini parallel turn only the first
+// call is signed, so "any" (not "all") correctly identifies a Gemini-origin turn.
+func turnIsSigned(tcs []langrails.ToolCall) bool {
+	for _, tc := range tcs {
+		if tc.Metadata != nil && tc.Metadata["thoughtSignature"] != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// toolCallKey is the identifier used to pair a tool call with its result. Gemini
+// has no call IDs (langrails sets ID = function name), other providers do; either
+// way the caller pairs the result's ToolCallID to this key.
+func toolCallKey(tc langrails.ToolCall) string {
+	if tc.ID != "" {
+		return tc.ID
+	}
+	return tc.Name
 }
 
 // convertContentParts builds Gemini parts from a message, handling multimodal
