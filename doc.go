@@ -1,8 +1,10 @@
 // Package langrails provides a unified interface for interacting with multiple
 // LLM (Large Language Model) providers through a single, consistent API.
 //
-// It supports 11+ providers including OpenAI, Anthropic, Google Gemini,
-// DeepSeek, Groq, Fireworks, xAI, OpenRouter, Together, Mistral, and Cohere.
+// It supports 25 providers including OpenAI, Anthropic, Google Gemini,
+// DeepSeek, Groq, Fireworks, xAI, OpenRouter, Together, Mistral, Cohere,
+// Perplexity, Ollama and Amazon Bedrock. See the llm package for the full
+// registry and per-provider constructors.
 //
 // # Core Interface
 //
