@@ -1,6 +1,6 @@
 # Providers
 
-langrails supports 24 LLM providers through a unified interface.
+langrails supports 25 LLM providers through a unified interface.
 
 ## Using the Registry
 
@@ -14,7 +14,7 @@ provider, err := llm.New(llm.OpenAI, "sk-...")
 provider := llm.MustNew(llm.Anthropic, "sk-ant-...")
 ```
 
-Available constants: `llm.OpenAI`, `llm.Anthropic`, `llm.Gemini`, `llm.DeepSeek`, `llm.Groq`, `llm.Fireworks`, `llm.XAI`, `llm.OpenRouter`, `llm.Together`, `llm.Mistral`, `llm.Cohere`, `llm.Perplexity`, `llm.Ollama`, `llm.Chutes`, `llm.ZAI`, `llm.Moonshot`, `llm.Novita`, `llm.DeepInfra`, `llm.Friendli`, `llm.Cerebras`, `llm.SambaNova`, `llm.Hyperbolic`, `llm.DashScope`, `llm.HuggingFace`
+Available constants: `llm.OpenAI`, `llm.Anthropic`, `llm.Gemini`, `llm.DeepSeek`, `llm.Groq`, `llm.Fireworks`, `llm.XAI`, `llm.OpenRouter`, `llm.Together`, `llm.Mistral`, `llm.Cohere`, `llm.Perplexity`, `llm.Ollama`, `llm.Chutes`, `llm.ZAI`, `llm.Moonshot`, `llm.Novita`, `llm.DeepInfra`, `llm.Friendli`, `llm.Cerebras`, `llm.SambaNova`, `llm.Hyperbolic`, `llm.DashScope`, `llm.HuggingFace`, `llm.Bedrock`
 
 For provider-specific options (custom base URL, HTTP client), use the direct import instead.
 
