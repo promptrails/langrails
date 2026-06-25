@@ -5,9 +5,12 @@ import "encoding/json"
 // Request types
 
 type request struct {
-	Model       string      `json:"model"`
-	Messages    []message   `json:"messages"`
-	System      string      `json:"system,omitempty"`
+	Model    string    `json:"model"`
+	Messages []message `json:"messages"`
+	// System is a plain string normally, or []systemBlock when prompt caching is
+	// on — the array form lets us attach a cache_control breakpoint to the system
+	// prompt. Typed as any so both shapes marshal under the same JSON field.
+	System      any         `json:"system,omitempty"`
 	MaxTokens   int         `json:"max_tokens"`
 	Temperature *float64    `json:"temperature,omitempty"`
 	TopP        *float64    `json:"top_p,omitempty"`
@@ -64,6 +67,16 @@ type tool struct {
 	AllowedDomains []string      `json:"allowed_domains,omitempty"`
 	BlockedDomains []string      `json:"blocked_domains,omitempty"`
 	UserLocation   *userLocation `json:"user_location,omitempty"`
+	// Set on the last tool to cache the whole tool-definition prefix.
+	CacheControl *cacheControl `json:"cache_control,omitempty"`
+}
+
+// systemBlock is the array form of the system prompt, used only when prompt
+// caching is on so a cache_control breakpoint can sit on the system prefix.
+type systemBlock struct {
+	Type         string        `json:"type"` // "text"
+	Text         string        `json:"text"`
+	CacheControl *cacheControl `json:"cache_control,omitempty"`
 }
 
 type userLocation struct {

@@ -384,13 +384,47 @@ func TestProvider_WebSearchAndCitations(t *testing.T) {
 }
 
 func TestProvider_CacheControlAndUsage(t *testing.T) {
+	// A flexible view of the request so we can assert cache_control on the system
+	// (array form), the last tool, and the last message — Anthropic's prefix order
+	// tools -> system -> messages.
+	type cc struct {
+		Type string `json:"type"`
+	}
+	type cachedReq struct {
+		System []struct {
+			Type         string `json:"type"`
+			Text         string `json:"text"`
+			CacheControl *cc    `json:"cache_control"`
+		} `json:"system"`
+		Tools []struct {
+			Name         string `json:"name"`
+			CacheControl *cc    `json:"cache_control"`
+		} `json:"tools"`
+		Messages []struct {
+			Content []struct {
+				CacheControl *cc `json:"cache_control"`
+			} `json:"content"`
+		} `json:"messages"`
+	}
+
 	server := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
-		var req request
-		_ = json.NewDecoder(r.Body).Decode(&req)
-		last := req.Messages[len(req.Messages)-1]
-		block := last.Content[len(last.Content)-1]
-		if block.CacheControl == nil || block.CacheControl.Type != "ephemeral" {
-			t.Errorf("expected cache_control ephemeral, got %+v", block.CacheControl)
+		var req cachedReq
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		// System cached via the array form.
+		if len(req.System) != 1 || req.System[0].Text != "Be helpful" ||
+			req.System[0].CacheControl == nil || req.System[0].CacheControl.Type != "ephemeral" {
+			t.Errorf("expected cached system block, got %+v", req.System)
+		}
+		// Last tool carries the tools-prefix breakpoint.
+		if n := len(req.Tools); n == 0 || req.Tools[n-1].CacheControl == nil {
+			t.Errorf("expected cache_control on the last tool, got %+v", req.Tools)
+		}
+		// Last message content block carries the conversation breakpoint.
+		lm := req.Messages[len(req.Messages)-1]
+		if lb := lm.Content[len(lm.Content)-1]; lb.CacheControl == nil || lb.CacheControl.Type != "ephemeral" {
+			t.Errorf("expected cache_control on the last message block, got %+v", lb)
 		}
 		resp := response{
 			Content:    []contentBlock{{Type: "text", Text: "ok"}},
@@ -404,6 +438,8 @@ func TestProvider_CacheControlAndUsage(t *testing.T) {
 	p := New("key", WithBaseURL(server.URL))
 	resp, err := p.Complete(context.Background(), &langrails.CompletionRequest{
 		Model:        "claude",
+		SystemPrompt: "Be helpful",
+		Tools:        []langrails.ToolDefinition{{Name: "lookup", Parameters: json.RawMessage(`{"type":"object"}`)}},
 		Messages:     []langrails.Message{{Role: "user", Content: "big prompt"}},
 		CacheControl: true,
 	})
@@ -412,6 +448,33 @@ func TestProvider_CacheControlAndUsage(t *testing.T) {
 	}
 	if resp.Usage.CachedTokens != 100 || resp.Usage.CacheCreationTokens != 20 {
 		t.Errorf("usage = %+v", resp.Usage)
+	}
+}
+
+// TestProvider_NoCacheControl confirms the system stays a plain string (not the
+// array form) and no cache markers appear when caching is off.
+func TestProvider_NoCacheControl(t *testing.T) {
+	server := newMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		var raw map[string]json.RawMessage
+		_ = json.NewDecoder(r.Body).Decode(&raw)
+		// system must be a JSON string, not an array.
+		if s, ok := raw["system"]; ok {
+			if len(s) > 0 && s[0] == '[' {
+				t.Errorf("expected system as a string without caching, got array: %s", s)
+			}
+		}
+		resp := response{Content: []contentBlock{{Type: "text", Text: "ok"}}, StopReason: "end_turn"}
+		_ = json.NewEncoder(w).Encode(resp)
+	})
+	defer server.Close()
+
+	p := New("key", WithBaseURL(server.URL))
+	if _, err := p.Complete(context.Background(), &langrails.CompletionRequest{
+		Model:        "claude",
+		SystemPrompt: "Be helpful",
+		Messages:     []langrails.Message{{Role: "user", Content: "hi"}},
+	}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

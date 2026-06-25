@@ -306,12 +306,30 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream boo
 		}
 	}
 
-	// Prompt caching: mark the end of the prompt prefix with a cache breakpoint
-	// on the last content block of the last message.
-	if req.CacheControl && len(r.Messages) > 0 {
-		last := &r.Messages[len(r.Messages)-1]
-		if len(last.Content) > 0 {
-			last.Content[len(last.Content)-1].CacheControl = &cacheControl{Type: "ephemeral"}
+	// Prompt caching breakpoints. Anthropic builds the cache key in prefix order
+	// tools -> system -> messages, and a cache_control marker caches everything up
+	// to and including it. Placing a breakpoint on the last tool and on the system
+	// caches those prefixes INDEPENDENTLY of message churn (tool results, new
+	// turns, a rewritten summary), so a multi-turn tool agent re-reads them
+	// instead of re-billing the full prompt every round. A final marker on the
+	// last message caches the conversation prefix for the next turn. Three
+	// breakpoints, within Anthropic's limit of four.
+	if req.CacheControl {
+		if n := len(r.Tools); n > 0 {
+			r.Tools[n-1].CacheControl = &cacheControl{Type: "ephemeral"}
+		}
+		if s, ok := r.System.(string); ok && s != "" {
+			r.System = []systemBlock{{
+				Type:         "text",
+				Text:         s,
+				CacheControl: &cacheControl{Type: "ephemeral"},
+			}}
+		}
+		if len(r.Messages) > 0 {
+			last := &r.Messages[len(r.Messages)-1]
+			if len(last.Content) > 0 {
+				last.Content[len(last.Content)-1].CacheControl = &cacheControl{Type: "ephemeral"}
+			}
 		}
 	}
 
