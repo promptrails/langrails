@@ -280,9 +280,19 @@ func TestProvider_CachePointAndUsage(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req request
 		_ = json.NewDecoder(r.Body).Decode(&req)
+		// Last message carries the conversation breakpoint.
 		last := req.Messages[len(req.Messages)-1]
 		if last.Content[len(last.Content)-1].CachePoint == nil {
 			t.Errorf("expected trailing cachePoint, got %+v", last.Content)
+		}
+		// System prefix cached via a trailing cachePoint block.
+		if n := len(req.System); n == 0 || req.System[n-1].CachePoint == nil {
+			t.Errorf("expected a trailing system cachePoint, got %+v", req.System)
+		}
+		// Tools prefix cached via a trailing cachePoint entry.
+		if req.ToolConfig == nil || len(req.ToolConfig.Tools) == 0 ||
+			req.ToolConfig.Tools[len(req.ToolConfig.Tools)-1].CachePoint == nil {
+			t.Errorf("expected a trailing tools cachePoint, got %+v", req.ToolConfig)
 		}
 		resp := response{
 			StopReason: "end_turn",
@@ -296,6 +306,8 @@ func TestProvider_CachePointAndUsage(t *testing.T) {
 	p := testProvider(server.URL)
 	resp, err := p.Complete(context.Background(), &langrails.CompletionRequest{
 		Model:        "anthropic.claude",
+		SystemPrompt: "Be helpful",
+		Tools:        []langrails.ToolDefinition{{Name: "lookup", Parameters: json.RawMessage(`{"type":"object"}`)}},
 		Messages:     []langrails.Message{{Role: "user", Content: "big"}},
 		CacheControl: true,
 	})

@@ -283,12 +283,6 @@ func buildRequestBody(req *langrails.CompletionRequest) ([]byte, error) {
 		System:   buildSystem(req),
 	}
 
-	// Prompt caching: mark a cache breakpoint at the end of the last message.
-	if req.CacheControl && len(r.Messages) > 0 {
-		last := &r.Messages[len(r.Messages)-1]
-		last.Content = append(last.Content, contentBlock{CachePoint: &cachePoint{Type: "default"}})
-	}
-
 	maxTokens := defaultMaxTokens
 	if req.MaxTokens != nil {
 		maxTokens = *req.MaxTokens
@@ -324,7 +318,7 @@ func buildRequestBody(req *langrails.CompletionRequest) ([]byte, error) {
 
 	var tools []toolEntry
 	for _, t := range req.Tools {
-		tools = append(tools, toolEntry{ToolSpec: toolSpec{
+		tools = append(tools, toolEntry{ToolSpec: &toolSpec{
 			Name:        t.Name,
 			Description: t.Description,
 			InputSchema: toolInputSchema{JSON: t.Parameters},
@@ -332,7 +326,7 @@ func buildRequestBody(req *langrails.CompletionRequest) ([]byte, error) {
 	}
 
 	if req.OutputSchema != nil {
-		tools = append(tools, toolEntry{ToolSpec: toolSpec{
+		tools = append(tools, toolEntry{ToolSpec: &toolSpec{
 			Name:        "structured_output",
 			Description: "Return the response in the specified JSON schema.",
 			InputSchema: toolInputSchema{JSON: json.RawMessage(*req.OutputSchema)},
@@ -350,6 +344,26 @@ func buildRequestBody(req *langrails.CompletionRequest) ([]byte, error) {
 			r.ToolConfig.ToolChoice = &toolChoice{Tool: &toolChoiceName{Name: "structured_output"}}
 		default:
 			r.ToolConfig.ToolChoice = convertToolChoice(req.ToolChoice)
+		}
+	}
+
+	// Prompt caching breakpoints. Converse caches in prefix order tools ->
+	// system -> messages; a cachePoint caches everything up to it. Marking the
+	// tools list and the system caches those prefixes INDEPENDENTLY of message
+	// churn (tool results, new turns, a rewritten summary), so a multi-turn tool
+	// agent re-reads them instead of re-billing every round. A final cachePoint on
+	// the last message caches the conversation prefix for the next turn. (Mirrors
+	// the native Anthropic provider.)
+	if req.CacheControl {
+		if r.ToolConfig != nil && len(r.ToolConfig.Tools) > 0 {
+			r.ToolConfig.Tools = append(r.ToolConfig.Tools, toolEntry{CachePoint: &cachePoint{Type: "default"}})
+		}
+		if len(r.System) > 0 {
+			r.System = append(r.System, systemBlock{CachePoint: &cachePoint{Type: "default"}})
+		}
+		if len(r.Messages) > 0 {
+			last := &r.Messages[len(r.Messages)-1]
+			last.Content = append(last.Content, contentBlock{CachePoint: &cachePoint{Type: "default"}})
 		}
 	}
 

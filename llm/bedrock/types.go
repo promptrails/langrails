@@ -13,8 +13,12 @@ type request struct {
 	AdditionalModelRequestFields json.RawMessage  `json:"additionalModelRequestFields,omitempty"`
 }
 
+// systemBlock is a Converse SystemContentBlock — exactly one of text or
+// cachePoint. The cachePoint form (text omitted) marks a cache breakpoint on the
+// system prefix when prompt caching is on.
 type systemBlock struct {
-	Text string `json:"text"`
+	Text       string      `json:"text,omitempty"`
+	CachePoint *cachePoint `json:"cachePoint,omitempty"`
 }
 
 type inferenceConfig struct {
@@ -72,8 +76,11 @@ type toolConfig struct {
 	ToolChoice *toolChoice `json:"toolChoice,omitempty"`
 }
 
+// toolEntry is a Converse tool list item — a toolSpec, or a cachePoint that
+// marks a cache breakpoint on the tool-definition prefix.
 type toolEntry struct {
-	ToolSpec toolSpec `json:"toolSpec"`
+	ToolSpec   *toolSpec   `json:"toolSpec,omitempty"`
+	CachePoint *cachePoint `json:"cachePoint,omitempty"`
 }
 
 type toolSpec struct {
