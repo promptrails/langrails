@@ -171,6 +171,79 @@ if err != nil {
 
 Default max steps is 100.
 
+## Parallel Fan-Out (Map-Reduce)
+
+`AddFanOut` runs a node's work across concurrent branches and merges the
+results — the map-reduce pattern, equivalent to LangGraph's Send API.
+
+Three pieces define a fan-out:
+
+- A **fan function** that turns the current state into a slice of `Send` values, one per branch. Each `Send` names the target node and carries the state copy that branch should run on.
+- A **reducer** that folds the branch results back into a single state.
+- A **join** node where execution continues once every branch completes.
+
+Branches run concurrently on their own state copies; if any branch returns an
+error, the rest are cancelled and the run fails.
+
+```go
+type State struct {
+    Docs      []string
+    Summaries []string
+}
+
+g := graph.New[State]()
+
+g.AddNode("split", func(ctx context.Context, s State) (State, error) {
+    return s, nil // nothing to do; fan-out reads s.Docs below
+})
+
+// Per-branch worker: each branch sees one document in s.Docs[0].
+g.AddNode("summarize", func(ctx context.Context, s State) (State, error) {
+    resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
+        Model:        "gpt-4o",
+        SystemPrompt: "Summarize the document in one sentence.",
+        Messages:     []langrails.Message{{Role: "user", Content: s.Docs[0]}},
+    })
+    s.Summaries = []string{resp.Content}
+    return s, nil
+})
+
+g.AddNode("reduce", func(ctx context.Context, s State) (State, error) {
+    return s, nil
+})
+
+g.SetEntryPoint("split")
+g.AddFanOut("split",
+    // fan: one branch per document
+    func(ctx context.Context, s State) ([]graph.Send[State], error) {
+        sends := make([]graph.Send[State], len(s.Docs))
+        for i, d := range s.Docs {
+            sends[i] = graph.Send[State]{Node: "summarize", State: State{Docs: []string{d}}}
+        }
+        return sends, nil
+    },
+    // reduce: gather every branch's summary
+    func(base State, results []State) State {
+        for _, r := range results {
+            base.Summaries = append(base.Summaries, r.Summaries...)
+        }
+        return base
+    },
+    "reduce", // join node
+)
+g.AddEdge("reduce", graph.END)
+
+result, _ := g.Run(ctx, State{Docs: []string{"doc a", "doc b", "doc c"}})
+// result.State.Summaries holds one summary per document
+```
+
+Notes:
+
+- Fan-out target nodes are leaf workers — their own outgoing edges are ignored. Use a subgraph (`graph.AsNode`) as the target when a branch needs multiple steps.
+- A fan-out edge takes precedence over any plain or conditional edge on the same source node.
+- A `nil` reducer falls back to the single branch result when there is exactly one branch, otherwise it keeps the pre-fan-out state.
+- An empty `Send` slice runs no branches and continues at the join node with the unchanged state.
+
 ## Multi-Agent Pattern
 
 ```go

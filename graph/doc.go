@@ -30,6 +30,31 @@
 // which guards against infinite loops). [RunResult].Steps records the node
 // execution history for observability.
 //
+// # Parallel fan-out
+//
+// Use [Graph.AddFanOut] to fan a node out into concurrent branches and merge
+// their results — the map-reduce pattern. A [FanFunc] turns the current state
+// into a slice of [Send] values (one per branch), each branch runs its target
+// node on its own state copy, and a [Reducer] folds the branch results back
+// into a single state before execution continues at the join node:
+//
+//	g.AddFanOut("split",
+//		func(ctx context.Context, s State) ([]graph.Send[State], error) {
+//			sends := make([]graph.Send[State], len(s.Docs))
+//			for i, d := range s.Docs {
+//				sends[i] = graph.Send[State]{Node: "summarize", State: State{Doc: d}}
+//			}
+//			return sends, nil
+//		},
+//		func(base State, results []State) State {
+//			for _, r := range results {
+//				base.Summaries = append(base.Summaries, r.Summary)
+//			}
+//			return base
+//		},
+//		"reduce",
+//	)
+//
 // For simple linear pipelines without branching, the chain package is lighter
 // weight.
 package graph
