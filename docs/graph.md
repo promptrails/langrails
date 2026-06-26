@@ -244,6 +244,57 @@ Notes:
 - A `nil` reducer falls back to the single branch result when there is exactly one branch, otherwise it keeps the pre-fan-out state.
 - An empty `Send` slice runs no branches and continues at the join node with the unchanged state.
 
+## Subgraphs (Composition)
+
+`AsNode` embeds a compiled graph as a node inside a parent graph. The
+subgraph keeps its own state type, nodes, and edges; you provide an `in`
+function to map parent state into the subgraph's input and an `out`
+function to merge the subgraph's result back. This is the building block
+for supervisor and multi-agent patterns — a coordinator graph delegates to
+specialist subgraphs.
+
+```go
+// Subgraph with its own state type.
+type Research struct {
+    Topic  string
+    Result string
+}
+
+researchGraph := graph.New[Research]()
+researchGraph.AddNode("gather", func(ctx context.Context, s Research) (Research, error) {
+    // ... call an LLM, search the web, etc.
+    s.Result = "findings about " + s.Topic
+    return s, nil
+})
+researchGraph.SetEntryPoint("gather")
+researchGraph.AddEdge("gather", graph.END)
+
+// Parent (supervisor) state.
+type Article struct {
+    Topic    string
+    Findings string
+    Draft    string
+}
+
+parent := graph.New[Article]()
+parent.AddNode("research", graph.AsNode(researchGraph,
+    func(p Article) Research { return Research{Topic: p.Topic} },   // in
+    func(r Research, p Article) Article {                            // out
+        p.Findings = r.Result
+        return p
+    },
+))
+parent.SetEntryPoint("research")
+parent.AddEdge("research", graph.END)
+
+result, _ := parent.Run(ctx, Article{Topic: "otters"})
+// result.State.Findings == "findings about otters"
+```
+
+The subgraph runs as a single parent step; a failure inside it is returned
+wrapped to the parent. Combine `AsNode` with `AddFanOut` to fan out across
+multiple specialist subgraphs concurrently.
+
 ## Multi-Agent Pattern
 
 ```go
