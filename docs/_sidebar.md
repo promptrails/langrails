@@ -18,5 +18,6 @@
   - [Tool Calling](tool-calling.md)
   - [Chain](chain.md)
   - [Graph](graph.md)
+  - [Durable Execution](durable-execution.md)
   - [MCP](mcp.md)
   - [A2A](a2a.md)

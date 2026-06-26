@@ -55,6 +55,16 @@
 //		"reduce",
 //	)
 //
+// # Durable execution
+//
+// Pass [WithCheckpointer] and [WithThreadID] to make a run durable. After
+// every superstep the graph saves a [Checkpoint] (the next node plus the
+// current state) so a crashed or paused run can be continued with
+// [Graph.Resume]. [MemoryCheckpointer] is the built-in in-memory store;
+// any type implementing [Checkpointer] (SQLite, Postgres, ...) can be used.
+// [Checkpointer.History] exposes the full checkpoint sequence for
+// time-travel debugging.
+//
 // For simple linear pipelines without branching, the chain package is lighter
 // weight.
 package graph
