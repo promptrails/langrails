@@ -176,7 +176,57 @@ func (g *Graph[S]) Run(ctx context.Context, initialState S, opts ...Option[S]) (
 		return nil, err
 	}
 
-	return g.run(ctx, initialState, g.entryPoint, 0)
+	return g.run(ctx, initialState, g.entryPoint, 0, nil)
+}
+
+// Stream executes the graph like Run but emits each node's StepEvent as it
+// completes. It returns a channel of step updates and a one-shot error
+// channel; both are closed when the run finishes. Range over events, then
+// read the error:
+//
+//	events, errc := g.Stream(ctx, initial)
+//	for ev := range events {
+//		fmt.Printf("node %s done\n", ev.Node)
+//	}
+//	if err := <-errc; err != nil {
+//		// handle failure
+//	}
+//
+// The final state is the State of the last emitted event. Cancel ctx to
+// stop the run between steps. Checkpointing applies here exactly as it does
+// for Run.
+func (g *Graph[S]) Stream(ctx context.Context, initialState S, opts ...Option[S]) (<-chan StepEvent[S], <-chan error) {
+	events := make(chan StepEvent[S])
+	errc := make(chan error, 1)
+
+	go func() {
+		defer close(events)
+		defer close(errc)
+
+		for _, opt := range opts {
+			opt(g)
+		}
+		if g.entryPoint == "" {
+			errc <- fmt.Errorf("graph: no entry point set")
+			return
+		}
+		if err := g.checkThread(); err != nil {
+			errc <- err
+			return
+		}
+
+		emit := func(ev StepEvent[S]) {
+			select {
+			case events <- ev:
+			case <-ctx.Done():
+			}
+		}
+		if _, err := g.run(ctx, initialState, g.entryPoint, 0, emit); err != nil {
+			errc <- err
+		}
+	}()
+
+	return events, errc
 }
 
 // Resume continues a checkpointed run from its most recent checkpoint. It
@@ -210,16 +260,27 @@ func (g *Graph[S]) Resume(ctx context.Context, opts ...Option[S]) (*RunResult[S]
 		return &RunResult[S]{State: cp.State}, nil
 	}
 
-	return g.run(ctx, cp.State, cp.Node, cp.Step)
+	return g.run(ctx, cp.State, cp.Node, cp.Step, nil)
 }
 
 // run drives the execution loop from a given node and step offset. It is
 // shared by Run (start from the entry point at step 0) and Resume (start
-// from a loaded checkpoint).
-func (g *Graph[S]) run(ctx context.Context, state S, currentNode string, startStep int) (*RunResult[S], error) {
+// from a loaded checkpoint). If emit is non-nil it is called with each
+// StepEvent as the event is produced, which is how Stream observes
+// progress live.
+func (g *Graph[S]) run(ctx context.Context, state S, currentNode string, startStep int, emit func(StepEvent[S])) (*RunResult[S], error) {
 	result := &RunResult[S]{}
+	record := func(ev StepEvent[S]) {
+		result.Steps = append(result.Steps, ev)
+		if emit != nil {
+			emit(ev)
+		}
+	}
 
 	for step := startStep + 1; step <= g.maxSteps; step++ {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		if currentNode == END {
 			result.State = state
 			return result, nil
@@ -236,7 +297,7 @@ func (g *Graph[S]) run(ctx context.Context, state S, currentNode string, startSt
 		}
 
 		state = newState
-		result.Steps = append(result.Steps, StepEvent[S]{
+		record(StepEvent[S]{
 			Node:  currentNode,
 			State: state,
 			Step:  step,
@@ -251,7 +312,7 @@ func (g *Graph[S]) run(ctx context.Context, state S, currentNode string, startSt
 			}
 			for i, snd := range sends {
 				step++
-				result.Steps = append(result.Steps, StepEvent[S]{
+				record(StepEvent[S]{
 					Node:  snd.Node,
 					State: results[i],
 					Step:  step,

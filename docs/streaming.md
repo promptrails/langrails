@@ -134,3 +134,32 @@ for event := range events {
 | All compat providers | Same as OpenAI | DeepSeek, Groq, etc. |
 
 The channel is always closed when the stream ends, so `range` over the channel is safe and will not block forever.
+
+## Graph Streaming
+
+The `graph` package can stream a workflow's progress: `Stream` runs the graph
+like `Run` but emits each node's `StepEvent` as that node completes, so a UI can
+show progress live instead of waiting for the whole run.
+
+```go
+events, errc := g.Stream(ctx, State{Input: "..."})
+
+for ev := range events {
+    fmt.Printf("step %d: node %s completed\n", ev.Step, ev.Node)
+    // ev.State holds the state after this node ran
+}
+
+// Read the result after the events channel closes.
+if err := <-errc; err != nil {
+    // handle failure
+}
+```
+
+- Both channels are closed when the run finishes; the error channel carries a single value (`nil` on success).
+- The final state is the `State` of the last emitted event.
+- Cancel `ctx` to stop the run between steps.
+- Checkpointing (`WithCheckpointer`/`WithThreadID`) applies to `Stream` exactly as it does to `Run`.
+
+For token-level streaming from within a node, have the node call the provider's
+`Stream` method directly and forward chunks over your own channel; graph
+`Stream` operates at node granularity (LangGraph's `updates` mode).

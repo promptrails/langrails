@@ -28,7 +28,8 @@
 // Use [Graph.AddConditionalEdge] with a [RouterFunc] to branch or loop based on
 // state, and [WithMaxSteps] to bound execution (the default cap is 100 steps,
 // which guards against infinite loops). [RunResult].Steps records the node
-// execution history for observability.
+// execution history for observability. [Graph.Stream] runs the graph while
+// emitting each node's [StepEvent] as it completes, for live progress.
 //
 // # Parallel fan-out
 //
