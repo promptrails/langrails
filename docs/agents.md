@@ -92,3 +92,29 @@ iteration, even if the model requested tools. The current response is returned.
 | `HumanInLoopMiddleware` | AfterModel | Pause for approval before executing tool calls |
 
 See the sections below for each.
+
+### Summarization
+
+`SummarizationMiddleware` keeps long conversations within the context window.
+Before each model call it estimates the token count of the message history; if
+it exceeds a threshold, the older messages are replaced with a single
+LLM-generated summary while the most recent messages are kept verbatim.
+
+```go
+// A cheaper model is a common choice for the summarization call.
+summarizer := agent.NewSummarization(provider, "claude-haiku-4-5-20251001",
+    agent.WithSummaryThreshold(3000), // trigger above ~3000 estimated tokens
+    agent.WithKeepRecent(4),          // keep the last 4 messages verbatim
+)
+
+a := agent.New(provider,
+    agent.WithModel("claude-sonnet-4-6"),
+    agent.WithMiddleware(summarizer),
+)
+```
+
+The summarizer never splits a tool call from its result: if the kept tail would
+begin with an orphaned `tool` message, that message is pulled into the summary
+instead. The provider and model passed to `NewSummarization` may differ from the
+agent's main model. Override the summarization instruction with
+`WithSummaryPrompt`.
