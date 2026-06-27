@@ -16,6 +16,7 @@
 
 - **Agent Toolkit**
   - [Tool Calling](tool-calling.md)
+  - [Agents (Middleware)](agents.md)
   - [Chain](chain.md)
   - [Graph](graph.md)
   - [Durable Execution](durable-execution.md)
