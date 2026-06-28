@@ -31,6 +31,8 @@
 //	fmt.Println(result.Response.Content)
 //
 // Built-in middleware covers common needs: [SummarizationMiddleware]
-// compresses long histories, [PIIRedactionMiddleware] masks sensitive
-// data, and [HumanInLoopMiddleware] pauses for approval before tool calls.
+// compresses long histories and [PIIRedactionMiddleware] masks sensitive
+// data. For human-in-the-loop approval, [HumanInLoop] wraps a
+// tools.Executor with an approval gate so a reviewer can approve or reject
+// tool calls before they run.
 package agent

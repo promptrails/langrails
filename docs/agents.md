@@ -85,11 +85,11 @@ iteration, even if the model requested tools. The current response is returned.
 
 ## Built-in middleware
 
-| Middleware | Hook | Purpose |
-|------------|------|---------|
+| Built-in | Hook | Purpose |
+|----------|------|---------|
 | `SummarizationMiddleware` | BeforeModel | Compress long histories to avoid context overflow |
 | `PIIRedactionMiddleware` | Before/After | Mask emails, phone numbers, card numbers |
-| `HumanInLoopMiddleware` | AfterModel | Pause for approval before executing tool calls |
+| `HumanInLoop` | executor gate | Approve or reject tool calls before they run |
 
 See the sections below for each.
 
@@ -146,3 +146,39 @@ a := agent.New(provider,
 
 Redaction covers message content and the text of multimodal content parts; it
 does not rewrite tool-call arguments.
+
+### Human-in-the-loop
+
+`HumanInLoop` wraps a `tools.Executor` with an approval gate. Before a guarded
+tool runs, an `Approver` is consulted: approved calls execute normally, while
+rejected calls return a rejection result to the model so it can adapt. This is
+the interrupt pattern — a human reviews sensitive actions before they take
+effect.
+
+```go
+gate := agent.NewHumanInLoop(realExecutor,
+    func(ctx context.Context, call langrails.ToolCall) (agent.Decision, error) {
+        // Block on a human decision (channel, HTTP callback, CLI prompt, ...).
+        if userApproves(call) {
+            return agent.Approve(), nil
+        }
+        return agent.Reject("user declined"), nil
+    },
+    agent.WithInterruptOn("send_email", "delete_file"), // only guard risky tools
+)
+
+a := agent.New(provider,
+    agent.WithModel("claude-sonnet-4-6"),
+    agent.WithTools(toolDefs, gate), // use the gate in place of the raw executor
+)
+```
+
+By default every tool requires approval; `WithInterruptOn` narrows that to a
+named subset. The approver may **block** while waiting for a human and may
+return an **error** to abort the run.
+
+**Durable pause and resume.** To pause across a process restart — e.g. a
+multi-day approval — run the agent inside a graph node and enable
+[durable execution](durable-execution.md). Have the approver return an error to
+stop the run; the graph checkpoint captures the state, and `Resume` continues
+once the human responds.
