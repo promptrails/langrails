@@ -118,3 +118,31 @@ begin with an orphaned `tool` message, that message is pulled into the summary
 instead. The provider and model passed to `NewSummarization` may differ from the
 agent's main model. Override the summarization instruction with
 `WithSummaryPrompt`.
+
+### PII redaction
+
+`PIIRedactionMiddleware` masks personally identifiable information with regular
+expressions. It ships with patterns for email addresses, credit-card numbers,
+and phone numbers, and is zero-dependency (stdlib `regexp` only). By default it
+redacts the messages sent to the model; opt in to also redact responses.
+
+```go
+redactor := agent.NewPIIRedaction(
+    agent.WithRedactOutput(true), // also mask the model's responses
+    agent.WithCustomPattern(regexp.MustCompile(`\b\d{3}-\d{2}-\d{4}\b`), "[REDACTED_SSN]"),
+)
+
+a := agent.New(provider,
+    agent.WithModel("claude-sonnet-4-6"),
+    agent.WithMiddleware(redactor),
+)
+```
+
+| Option | Default | Effect |
+|--------|---------|--------|
+| `WithRedactInput(bool)` | `true` | Redact outgoing messages (BeforeModel) |
+| `WithRedactOutput(bool)` | `false` | Redact response content (AfterModel) |
+| `WithCustomPattern(re, repl)` | — | Add a custom pattern, applied after the built-ins |
+
+Redaction covers message content and the text of multimodal content parts; it
+does not rewrite tool-call arguments.
