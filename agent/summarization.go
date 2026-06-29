@@ -126,6 +126,9 @@ func (m *SummarizationMiddleware) summarize(ctx context.Context, msgs []langrail
 
 // estimateMessages estimates the total token count of a message slice using
 // the rough heuristic of ~4 characters per token plus per-message overhead.
+// This intentionally trades accuracy for zero dependencies; it can
+// underestimate for multilingual or code-heavy content, so set
+// WithSummaryThreshold conservatively if exact token budgets matter.
 func estimateMessages(msgs []langrails.Message) int {
 	total := 0
 	for _, m := range msgs {

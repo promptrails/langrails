@@ -9,6 +9,12 @@ import (
 
 // Built-in PII patterns. Credit-card matching runs before phone matching so
 // long digit groups are not partially consumed as phone numbers.
+//
+// These patterns favor over-redaction: the card pattern in particular
+// matches any 13-16 digit group, so domain-specific numeric identifiers
+// (order numbers, IDs) may be redacted too. Callers that need to keep such
+// values should narrow the input or post-process rather than rely on these
+// defaults being precise.
 var (
 	reEmail = regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`)
 	reCard  = regexp.MustCompile(`\b\d{4}[ -]?\d{4}[ -]?\d{4}[ -]?\d{1,4}\b`)

@@ -113,6 +113,10 @@ a := agent.New(provider,
 )
 ```
 
+The token count is a zero-dependency estimate (~4 characters per token), so it
+can underestimate for multilingual or code-heavy content — set
+`WithSummaryThreshold` conservatively if exact budgets matter.
+
 The summarizer never splits a tool call from its result: if the kept tail would
 begin with an orphaned `tool` message, that message is pulled into the summary
 instead. The provider and model passed to `NewSummarization` may differ from the
@@ -145,7 +149,9 @@ a := agent.New(provider,
 | `WithCustomPattern(re, repl)` | — | Add a custom pattern, applied after the built-ins |
 
 Redaction covers message content and the text of multimodal content parts; it
-does not rewrite tool-call arguments.
+does not rewrite tool-call arguments. The built-in patterns favor
+over-redaction — the card pattern matches any 13–16 digit group, so
+domain-specific numeric identifiers may also be masked.
 
 ### Human-in-the-loop
 

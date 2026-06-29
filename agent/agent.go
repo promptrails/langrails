@@ -98,13 +98,10 @@ func (a *Agent) RunMessages(ctx context.Context, messages []langrails.Message) (
 		return nil, fmt.Errorf("agent: no model set (use WithModel)")
 	}
 
-	msgs := make([]langrails.Message, len(messages))
-	copy(msgs, messages)
-
 	req := &langrails.CompletionRequest{
 		Model:        a.model,
 		SystemPrompt: a.systemPrompt,
-		Messages:     msgs,
+		Messages:     append([]langrails.Message(nil), messages...),
 		Tools:        a.tools,
 	}
 
