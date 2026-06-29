@@ -37,8 +37,9 @@ go get github.com/promptrails/langrails
 - **Reasoning** — Provider-agnostic `ReasoningEffort` (minimal/low/medium/high), reasoning text + token accounting
 - **Web search & citations** — Provider-native search (`ServerTools`) with unified `Citations` in the response
 - **Prompt caching** — `CacheControl` + cached/cache-creation token reporting
+- **Agents** — Middleware-driven tool-calling loop (summarization, PII redaction, human-in-the-loop)
 - **Chain** — Sequential multi-step prompt pipelines
-- **Graph** — LangGraph-style stateful workflow engine
+- **Graph** — LangGraph-style stateful workflows: parallel fan-out, subgraphs, streaming, durable execution
 - **MCP** — Model Context Protocol client
 - **A2A** — Agent-to-Agent protocol client + server
 - **Structured output** — JSON schema + JSON mode across all providers
@@ -64,8 +65,10 @@ go get github.com/promptrails/langrails
 | [Prompt Templates](docs/prompt-templates.md) | Jinja-style variable substitution |
 | [Memory](docs/memory.md) | Conversation history management |
 | [Tool Calling](docs/tool-calling.md) | Function calling + automatic tool loop |
+| [Agents (Middleware)](docs/agents.md) | Middleware agent loop + built-in middleware |
 | [Chain](docs/chain.md) | Sequential prompt pipelines |
-| [Graph](docs/graph.md) | Stateful workflows, conditional routing |
+| [Graph](docs/graph.md) | Stateful workflows, fan-out, subgraphs, streaming |
+| [Durable Execution](docs/durable-execution.md) | Checkpointing, resume, time travel |
 | [MCP](docs/mcp.md) | Model Context Protocol integration |
 | [A2A](docs/a2a.md) | Agent-to-Agent protocol client + server |
 | [Retry & Fallback](docs/retry-fallback.md) | Resilience patterns |
