@@ -46,18 +46,24 @@ type fanOut[S any] struct {
 	join   string
 }
 
+// defaultMaxSteps bounds execution to guard against infinite loops.
+const defaultMaxSteps = 100
+
 // Graph is a stateful workflow engine. It executes nodes in a graph
 // structure, where transitions between nodes are determined by edges.
 // S is the state type that flows through the graph.
+//
+// A Graph holds only structural configuration (nodes and edges) and is not
+// mutated by Run, Resume, or Stream — per-run settings such as the
+// checkpointer and step budget are supplied as options on each call. The
+// same graph can therefore be run concurrently with different options
+// without interference.
 type Graph[S any] struct {
 	nodes            map[string]NodeFunc[S]
 	edges            map[string]string
 	conditionalEdges map[string]RouterFunc[S]
 	fanOuts          map[string]fanOut[S]
 	entryPoint       string
-	maxSteps         int
-	checkpointer     Checkpointer[S]
-	threadID         string
 }
 
 // New creates a new graph with the given state type.
@@ -67,29 +73,45 @@ func New[S any]() *Graph[S] {
 		edges:            make(map[string]string),
 		conditionalEdges: make(map[string]RouterFunc[S]),
 		fanOuts:          make(map[string]fanOut[S]),
-		maxSteps:         100,
 	}
 }
 
-// Option configures the graph.
-type Option[S any] func(*Graph[S])
+// runConfig holds the per-run settings supplied via options. It is built
+// fresh for each Run/Resume/Stream call so options never leak between runs.
+type runConfig[S any] struct {
+	maxSteps     int
+	checkpointer Checkpointer[S]
+	threadID     string
+}
 
-// WithMaxSteps sets the maximum number of node executions.
+func (g *Graph[S]) buildConfig(opts ...Option[S]) *runConfig[S] {
+	cfg := &runConfig[S]{maxSteps: defaultMaxSteps}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	return cfg
+}
+
+// Option configures a single run.
+type Option[S any] func(*runConfig[S])
+
+// WithMaxSteps sets the maximum number of node executions for the run.
 // This prevents infinite loops. Default is 100.
 func WithMaxSteps[S any](n int) Option[S] {
-	return func(g *Graph[S]) {
-		g.maxSteps = n
+	return func(c *runConfig[S]) {
+		c.maxSteps = n
 	}
 }
 
-// WithCheckpointer enables durable execution. After each superstep the
-// graph saves a checkpoint (the next node to run plus the current state)
-// under the configured thread ID, allowing a crashed or paused run to be
-// continued with [Graph.Resume]. A thread ID is required; set it with
-// [WithThreadID].
+// WithCheckpointer enables durable execution for the run. After each
+// superstep the graph saves a checkpoint (the next node to run plus the
+// current state) under the configured thread ID, allowing a crashed or
+// paused run to be continued with [Graph.Resume]. A thread ID is required;
+// set it with [WithThreadID]. Resume must be given the same checkpointer
+// and thread ID, as options are not retained between calls.
 func WithCheckpointer[S any](cp Checkpointer[S]) Option[S] {
-	return func(g *Graph[S]) {
-		g.checkpointer = cp
+	return func(c *runConfig[S]) {
+		c.checkpointer = cp
 	}
 }
 
@@ -97,8 +119,8 @@ func WithCheckpointer[S any](cp Checkpointer[S]) Option[S] {
 // thread identifies one logical run (for example a conversation), so its
 // checkpoints can be loaded and resumed independently of other runs.
 func WithThreadID[S any](id string) Option[S] {
-	return func(g *Graph[S]) {
-		g.threadID = id
+	return func(c *runConfig[S]) {
+		c.threadID = id
 	}
 }
 
@@ -165,18 +187,16 @@ type RunResult[S any] struct {
 // initial state. It follows edges until it reaches END or the maximum
 // number of steps is exceeded.
 func (g *Graph[S]) Run(ctx context.Context, initialState S, opts ...Option[S]) (*RunResult[S], error) {
-	for _, opt := range opts {
-		opt(g)
-	}
+	cfg := g.buildConfig(opts...)
 
 	if g.entryPoint == "" {
 		return nil, fmt.Errorf("graph: no entry point set")
 	}
-	if err := g.checkThread(); err != nil {
+	if err := cfg.checkThread(); err != nil {
 		return nil, err
 	}
 
-	return g.run(ctx, initialState, g.entryPoint, 0, nil)
+	return g.run(ctx, cfg, initialState, g.entryPoint, 0, nil)
 }
 
 // Stream executes the graph like Run but emits each node's StepEvent as it
@@ -203,14 +223,12 @@ func (g *Graph[S]) Stream(ctx context.Context, initialState S, opts ...Option[S]
 		defer close(events)
 		defer close(errc)
 
-		for _, opt := range opts {
-			opt(g)
-		}
+		cfg := g.buildConfig(opts...)
 		if g.entryPoint == "" {
 			errc <- fmt.Errorf("graph: no entry point set")
 			return
 		}
-		if err := g.checkThread(); err != nil {
+		if err := cfg.checkThread(); err != nil {
 			errc <- err
 			return
 		}
@@ -221,7 +239,7 @@ func (g *Graph[S]) Stream(ctx context.Context, initialState S, opts ...Option[S]
 			case <-ctx.Done():
 			}
 		}
-		if _, err := g.run(ctx, initialState, g.entryPoint, 0, emit); err != nil {
+		if _, err := g.run(ctx, cfg, initialState, g.entryPoint, 0, emit); err != nil {
 			errc <- err
 		}
 	}()
@@ -235,32 +253,30 @@ func (g *Graph[S]) Stream(ctx context.Context, initialState S, opts ...Option[S]
 // marks the run as complete, the persisted final state is returned without
 // executing any further nodes.
 //
-// A checkpointer and thread ID are required; pass them via options here or
-// when the graph was first run.
+// Because options are not retained between calls, Resume must be given the
+// same checkpointer and thread ID that the original run used.
 func (g *Graph[S]) Resume(ctx context.Context, opts ...Option[S]) (*RunResult[S], error) {
-	for _, opt := range opts {
-		opt(g)
-	}
+	cfg := g.buildConfig(opts...)
 
-	if g.checkpointer == nil {
+	if cfg.checkpointer == nil {
 		return nil, fmt.Errorf("graph: resume requires a checkpointer")
 	}
-	if g.threadID == "" {
+	if cfg.threadID == "" {
 		return nil, fmt.Errorf("graph: resume requires a thread ID")
 	}
 
-	cp, ok, err := g.checkpointer.Load(ctx, g.threadID)
+	cp, ok, err := cfg.checkpointer.Load(ctx, cfg.threadID)
 	if err != nil {
 		return nil, fmt.Errorf("graph: load checkpoint: %w", err)
 	}
 	if !ok {
-		return nil, fmt.Errorf("graph: no checkpoint for thread %q", g.threadID)
+		return nil, fmt.Errorf("graph: no checkpoint for thread %q", cfg.threadID)
 	}
 	if cp.Done || cp.Node == END {
 		return &RunResult[S]{State: cp.State}, nil
 	}
 
-	return g.run(ctx, cp.State, cp.Node, cp.Step, nil)
+	return g.run(ctx, cfg, cp.State, cp.Node, cp.Step, nil)
 }
 
 // run drives the execution loop from a given node and step offset. It is
@@ -268,7 +284,7 @@ func (g *Graph[S]) Resume(ctx context.Context, opts ...Option[S]) (*RunResult[S]
 // from a loaded checkpoint). If emit is non-nil it is called with each
 // StepEvent as the event is produced, which is how Stream observes
 // progress live.
-func (g *Graph[S]) run(ctx context.Context, state S, currentNode string, startStep int, emit func(StepEvent[S])) (*RunResult[S], error) {
+func (g *Graph[S]) run(ctx context.Context, cfg *runConfig[S], state S, currentNode string, startStep int, emit func(StepEvent[S])) (*RunResult[S], error) {
 	result := &RunResult[S]{}
 	record := func(ev StepEvent[S]) {
 		result.Steps = append(result.Steps, ev)
@@ -277,13 +293,20 @@ func (g *Graph[S]) run(ctx context.Context, state S, currentNode string, startSt
 		}
 	}
 
-	for step := startStep + 1; step <= g.maxSteps; step++ {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
+	// step is an explicit execution counter: it is incremented once per
+	// node execution (including each fan-out branch) and is the authority
+	// for both StepEvent numbering and the maxSteps budget.
+	step := startStep
+	for {
 		if currentNode == END {
 			result.State = state
 			return result, nil
+		}
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if step >= cfg.maxSteps {
+			return nil, fmt.Errorf("graph: exceeded maximum steps (%d)", cfg.maxSteps)
 		}
 
 		fn, ok := g.nodes[currentNode]
@@ -296,6 +319,7 @@ func (g *Graph[S]) run(ctx context.Context, state S, currentNode string, startSt
 			return nil, fmt.Errorf("graph: node %q failed: %w", currentNode, err)
 		}
 
+		step++
 		state = newState
 		record(StepEvent[S]{
 			Node:  currentNode,
@@ -320,7 +344,7 @@ func (g *Graph[S]) run(ctx context.Context, state S, currentNode string, startSt
 			}
 			state = reduceFanOut(fo.reduce, state, results)
 			currentNode = fo.join
-			if err := g.saveCheckpoint(ctx, step, currentNode, state); err != nil {
+			if err := saveCheckpoint(ctx, cfg, step, currentNode, state); err != nil {
 				return nil, err
 			}
 			continue
@@ -335,28 +359,26 @@ func (g *Graph[S]) run(ctx context.Context, state S, currentNode string, startSt
 			return nil, fmt.Errorf("graph: no edge from node %q", currentNode)
 		}
 
-		if err := g.saveCheckpoint(ctx, step, currentNode, state); err != nil {
+		if err := saveCheckpoint(ctx, cfg, step, currentNode, state); err != nil {
 			return nil, err
 		}
 	}
-
-	return nil, fmt.Errorf("graph: exceeded maximum steps (%d)", g.maxSteps)
 }
 
 // saveCheckpoint persists the next node to run and the current state. It
 // is a no-op when no checkpointer is configured.
-func (g *Graph[S]) saveCheckpoint(ctx context.Context, step int, nextNode string, state S) error {
-	if g.checkpointer == nil {
+func saveCheckpoint[S any](ctx context.Context, cfg *runConfig[S], step int, nextNode string, state S) error {
+	if cfg.checkpointer == nil {
 		return nil
 	}
 	cp := Checkpoint[S]{
-		ThreadID: g.threadID,
+		ThreadID: cfg.threadID,
 		Step:     step,
 		Node:     nextNode,
 		State:    state,
 		Done:     nextNode == END,
 	}
-	if err := g.checkpointer.Save(ctx, g.threadID, cp); err != nil {
+	if err := cfg.checkpointer.Save(ctx, cfg.threadID, cp); err != nil {
 		return fmt.Errorf("graph: save checkpoint: %w", err)
 	}
 	return nil
@@ -364,8 +386,8 @@ func (g *Graph[S]) saveCheckpoint(ctx context.Context, step int, nextNode string
 
 // checkThread validates that a thread ID is present whenever a
 // checkpointer is configured.
-func (g *Graph[S]) checkThread() error {
-	if g.checkpointer != nil && g.threadID == "" {
+func (c *runConfig[S]) checkThread() error {
+	if c.checkpointer != nil && c.threadID == "" {
 		return fmt.Errorf("graph: checkpointer set but no thread ID (use WithThreadID)")
 	}
 	return nil
