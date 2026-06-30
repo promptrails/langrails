@@ -330,7 +330,17 @@ func (g *Graph[S]) run(ctx context.Context, cfg *runConfig[S], state S, currentN
 		// Fan-out edges take precedence: run branches concurrently, then
 		// reduce their results and continue at the join node.
 		if fo, ok := g.fanOuts[currentNode]; ok {
-			results, sends, err := g.executeFanOut(ctx, fo, state)
+			sends, err := g.planFanOut(ctx, fo, state)
+			if err != nil {
+				return nil, err
+			}
+			// Each branch is a node execution, so it must fit within the
+			// remaining step budget before any branch (and its side effects)
+			// runs.
+			if step+len(sends) > cfg.maxSteps {
+				return nil, fmt.Errorf("graph: exceeded maximum steps (%d)", cfg.maxSteps)
+			}
+			results, err := g.runBranches(ctx, sends)
 			if err != nil {
 				return nil, err
 			}
@@ -393,24 +403,28 @@ func (c *runConfig[S]) checkThread() error {
 	return nil
 }
 
-// executeFanOut runs every branch returned by the fan function
-// concurrently and collects their results in branch order. If any branch
-// fails, the remaining branches are cancelled and the first error is
-// returned.
-func (g *Graph[S]) executeFanOut(ctx context.Context, fo fanOut[S], state S) ([]S, []Send[S], error) {
+// planFanOut calls the fan function and validates that every branch target
+// exists, so a typo fails fast and deterministically before any branch
+// runs. It does not execute branches.
+func (g *Graph[S]) planFanOut(ctx context.Context, fo fanOut[S], state S) ([]Send[S], error) {
 	sends, err := fo.fan(ctx, state)
 	if err != nil {
-		return nil, nil, fmt.Errorf("graph: fan-out failed: %w", err)
+		return nil, fmt.Errorf("graph: fan-out failed: %w", err)
 	}
-	if len(sends) == 0 {
-		return nil, sends, nil
-	}
-
-	// Validate targets up front so a typo fails fast and deterministically.
 	for _, snd := range sends {
 		if _, ok := g.nodes[snd.Node]; !ok {
-			return nil, nil, fmt.Errorf("graph: unknown fan-out node %q", snd.Node)
+			return nil, fmt.Errorf("graph: unknown fan-out node %q", snd.Node)
 		}
+	}
+	return sends, nil
+}
+
+// runBranches runs every branch concurrently and collects their results in
+// branch order. If any branch fails, the remaining branches are cancelled
+// and the first error is returned.
+func (g *Graph[S]) runBranches(ctx context.Context, sends []Send[S]) ([]S, error) {
+	if len(sends) == 0 {
+		return nil, nil
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -436,10 +450,10 @@ func (g *Graph[S]) executeFanOut(ctx context.Context, fo fanOut[S], state S) ([]
 
 	for i, e := range errs {
 		if e != nil {
-			return nil, nil, fmt.Errorf("graph: fan-out node %q failed: %w", sends[i].Node, e)
+			return nil, fmt.Errorf("graph: fan-out node %q failed: %w", sends[i].Node, e)
 		}
 	}
-	return results, sends, nil
+	return results, nil
 }
 
 // reduceFanOut merges branch results back into a single state. A nil

@@ -67,6 +67,42 @@ func TestGraph_FanOut_MapReduce(t *testing.T) {
 	}
 }
 
+func TestGraph_FanOut_RespectsMaxSteps(t *testing.T) {
+	type state struct{}
+
+	var branchRuns int32
+	g := New[state]()
+	g.AddNode("seed", func(_ context.Context, s state) (state, error) { return s, nil })
+	g.AddNode("work", func(_ context.Context, s state) (state, error) {
+		atomic.AddInt32(&branchRuns, 1)
+		return s, nil
+	})
+	g.AddNode("done", func(_ context.Context, s state) (state, error) { return s, nil })
+
+	g.SetEntryPoint("seed")
+	g.AddFanOut("seed",
+		func(_ context.Context, _ state) ([]Send[state], error) {
+			return []Send[state]{
+				{Node: "work", State: state{}},
+				{Node: "work", State: state{}},
+				{Node: "work", State: state{}},
+			}, nil
+		},
+		func(base state, _ []state) state { return base },
+		"done",
+	)
+	g.AddEdge("done", END)
+
+	// Budget of 1 covers the seed node only; the 3 branches must not run.
+	_, err := g.Run(context.Background(), state{}, WithMaxSteps[state](1))
+	if err == nil {
+		t.Fatal("expected max steps error before branches run")
+	}
+	if n := atomic.LoadInt32(&branchRuns); n != 0 {
+		t.Errorf("expected no branch executions when over budget, got %d", n)
+	}
+}
+
 func TestGraph_FanOut_RunsConcurrently(t *testing.T) {
 	type state struct{ N int }
 
