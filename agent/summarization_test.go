@@ -101,6 +101,33 @@ func TestSummarization_DoesNotOrphanToolResult(t *testing.T) {
 	}
 }
 
+func TestSummarization_IncludesContentParts(t *testing.T) {
+	sp := &summarizerProvider{}
+	mw := NewSummarization(sp, "small", WithSummaryThreshold(50), WithKeepRecent(1))
+
+	big := strings.Repeat("y", 400)
+	msgs := []langrails.Message{
+		{Role: "user", ContentParts: []langrails.ContentPart{
+			langrails.TextPart(big),
+			langrails.ImageURLPart("https://example.com/a.png"),
+		}},
+		{Role: "assistant", Content: "ok"},
+		{Role: "user", Content: "next"},
+	}
+	state := &State{Request: &langrails.CompletionRequest{Messages: msgs}}
+	if err := mw.BeforeModel(context.Background(), state); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !sp.called {
+		t.Fatal("expected summarization to trigger on content-part text")
+	}
+	// The serialized history fed to the summarizer must contain the text
+	// part, not be empty.
+	if !strings.Contains(sp.gotInput, big) {
+		t.Error("summarizer input ignored ContentParts text")
+	}
+}
+
 func TestSummarization_AgentIntegration(t *testing.T) {
 	// Main provider returns a final answer; summarizer compresses history.
 	main := &mockProvider{responses: []*langrails.CompletionResponse{{Content: "answer"}}}

@@ -109,7 +109,7 @@ func (m *SummarizationMiddleware) summarize(ctx context.Context, msgs []langrail
 	for _, msg := range msgs {
 		b.WriteString(msg.Role)
 		b.WriteString(": ")
-		b.WriteString(msg.Content)
+		b.WriteString(messageText(msg))
 		b.WriteByte('\n')
 	}
 
@@ -132,8 +132,27 @@ func (m *SummarizationMiddleware) summarize(ctx context.Context, msgs []langrail
 func estimateMessages(msgs []langrails.Message) int {
 	total := 0
 	for _, m := range msgs {
-		total += len(m.Content)/4 + 1
+		total += len(messageText(m))/4 + 1
 		total += 4 // role / formatting overhead
 	}
 	return total
+}
+
+// messageText returns a message's textual content. When ContentParts is
+// set it takes precedence over Content (matching langrails.Message
+// semantics), so text parts are joined; image parts contribute no text.
+func messageText(m langrails.Message) string {
+	if len(m.ContentParts) == 0 {
+		return m.Content
+	}
+	var b strings.Builder
+	for _, p := range m.ContentParts {
+		if p.Type == "text" {
+			if b.Len() > 0 {
+				b.WriteByte('\n')
+			}
+			b.WriteString(p.Text)
+		}
+	}
+	return b.String()
 }

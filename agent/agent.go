@@ -91,8 +91,9 @@ func (a *Agent) Run(ctx context.Context, input string) (*Result, error) {
 }
 
 // RunMessages executes the agent with a full message history, giving the
-// caller control over prior turns. The slice is copied before use, so the
-// caller's slice is not modified.
+// caller control over prior turns. The messages are deep-copied before use
+// (including content parts and tool calls), so middleware such as PII
+// redaction cannot mutate the caller's original history.
 func (a *Agent) RunMessages(ctx context.Context, messages []langrails.Message) (*Result, error) {
 	if a.model == "" {
 		return nil, fmt.Errorf("agent: no model set (use WithModel)")
@@ -101,7 +102,7 @@ func (a *Agent) RunMessages(ctx context.Context, messages []langrails.Message) (
 	req := &langrails.CompletionRequest{
 		Model:        a.model,
 		SystemPrompt: a.systemPrompt,
-		Messages:     append([]langrails.Message(nil), messages...),
+		Messages:     cloneMessages(messages),
 		Tools:        a.tools,
 	}
 
@@ -173,6 +174,37 @@ func (a *Agent) baseCall() CallFunc {
 	return func(ctx context.Context, req *langrails.CompletionRequest) (*langrails.CompletionResponse, error) {
 		return a.provider.Complete(ctx, req)
 	}
+}
+
+// cloneMessages deep-copies a message slice so middleware (for example PII
+// redaction) can mutate message content, content parts, and tool calls
+// without touching the caller's original history.
+func cloneMessages(msgs []langrails.Message) []langrails.Message {
+	if msgs == nil {
+		return nil
+	}
+	out := make([]langrails.Message, len(msgs))
+	for i, m := range msgs {
+		c := m // copies scalar fields and slice headers
+		if m.ContentParts != nil {
+			c.ContentParts = append([]langrails.ContentPart(nil), m.ContentParts...)
+		}
+		if m.ToolCalls != nil {
+			c.ToolCalls = make([]langrails.ToolCall, len(m.ToolCalls))
+			for j, tc := range m.ToolCalls {
+				c.ToolCalls[j] = tc
+				if tc.Metadata != nil {
+					md := make(map[string]string, len(tc.Metadata))
+					for k, v := range tc.Metadata {
+						md[k] = v
+					}
+					c.ToolCalls[j].Metadata = md
+				}
+			}
+		}
+		out[i] = c
+	}
+	return out
 }
 
 func addUsage(total *langrails.TokenUsage, u langrails.TokenUsage) {

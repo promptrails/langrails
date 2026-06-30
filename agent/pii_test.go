@@ -88,6 +88,27 @@ func TestPII_CustomPattern(t *testing.T) {
 	}
 }
 
+func TestAgent_DoesNotMutateCallerMessages(t *testing.T) {
+	// Caller passes a multimodal message; PII redaction runs inside the
+	// agent. The caller's original ContentParts must remain untouched.
+	p := &mockProvider{responses: []*langrails.CompletionResponse{{Content: "ok"}}}
+	original := []langrails.Message{{
+		Role: "user",
+		ContentParts: []langrails.ContentPart{
+			langrails.TextPart("contact me at jane@example.com"),
+		},
+	}}
+
+	a := New(p, WithModel("test"), WithMiddleware(NewPIIRedaction()))
+	if _, err := a.RunMessages(context.Background(), original); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if original[0].ContentParts[0].Text != "contact me at jane@example.com" {
+		t.Errorf("caller's message was mutated: %q", original[0].ContentParts[0].Text)
+	}
+}
+
 func TestPII_RedactsContentParts(t *testing.T) {
 	mw := NewPIIRedaction()
 	state := &State{Request: &langrails.CompletionRequest{
