@@ -33,6 +33,13 @@ type part struct {
 	FileData         *fileData         `json:"fileData,omitempty"`
 	FunctionCall     *functionCall     `json:"functionCall,omitempty"`
 	FunctionResponse *functionResponse `json:"functionResponse,omitempty"`
+	// ThoughtSignature is Gemini's opaque proof that a functionCall came from
+	// the model's own reasoning. Gemini 2.5+ returns it at the PART level (a
+	// sibling of functionCall, NOT inside it) and REQUIRES it echoed back on
+	// replay, or it rejects the whole request. Parsing it from the wrong level
+	// silently drops it → every replayed tool call is "unsigned" → the caller
+	// falls back to a text transcript that the model then mimics into content.
+	ThoughtSignature string `json:"thoughtSignature,omitempty"`
 }
 
 type inlineData struct {
@@ -46,9 +53,8 @@ type fileData struct {
 }
 
 type functionCall struct {
-	Name             string                 `json:"name"`
-	Args             map[string]interface{} `json:"args"`
-	ThoughtSignature string                 `json:"thoughtSignature,omitempty"`
+	Name string                 `json:"name"`
+	Args map[string]interface{} `json:"args"`
 }
 
 type functionResponse struct {

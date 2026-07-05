@@ -204,8 +204,8 @@ func TestProvider_ConvertMessages(t *testing.T) {
 	if msgs[1].Role != "model" {
 		t.Errorf("expected 'model' role for assistant, got %q", msgs[1].Role)
 	}
-	if msgs[1].Parts[0].FunctionCall == nil || msgs[1].Parts[0].FunctionCall.ThoughtSignature != "sig-abc" {
-		t.Error("expected functionCall with thoughtSignature for signed tool call")
+	if msgs[1].Parts[0].FunctionCall == nil || msgs[1].Parts[0].ThoughtSignature != "sig-abc" {
+		t.Error("expected functionCall with part-level thoughtSignature for signed tool call")
 	}
 	if msgs[2].Parts[0].FunctionResponse == nil {
 		t.Error("expected functionResponse for tool message")
@@ -503,5 +503,27 @@ func TestProvider_Reasoning(t *testing.T) {
 	}
 	if resp.Usage.ReasoningTokens != 7 {
 		t.Errorf("ReasoningTokens = %d, want 7", resp.Usage.ReasoningTokens)
+	}
+}
+
+func TestParseResponsePartLevelThoughtSignature(t *testing.T) {
+	// Gemini returns thoughtSignature at the PART level (a sibling of
+	// functionCall). Parsing it from inside functionCall silently drops it,
+	// making every replayed tool call "unsigned" → the text-transcript
+	// fallback that the model then mimics into visible content.
+	raw := `{"candidates":[{"content":{"role":"model","parts":[` +
+		`{"functionCall":{"name":"list_prompts","args":{"page":1}},"thoughtSignature":"sig-xyz"}` +
+		`]}}]}`
+	var resp response
+	if err := json.Unmarshal([]byte(raw), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	p := &Provider{}
+	out := p.parseResponse(&resp)
+	if len(out.ToolCalls) != 1 {
+		t.Fatalf("expected 1 tool call, got %d", len(out.ToolCalls))
+	}
+	if got := out.ToolCalls[0].Metadata["thoughtSignature"]; got != "sig-xyz" {
+		t.Errorf("thoughtSignature = %q, want sig-xyz (must be read from the part level)", got)
 	}
 }
