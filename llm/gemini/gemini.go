@@ -188,8 +188,10 @@ func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<-
 					Name:      part.FunctionCall.Name,
 					Arguments: string(args),
 				}
-				if part.FunctionCall.ThoughtSignature != "" {
-					tc.Metadata = map[string]string{"thoughtSignature": part.FunctionCall.ThoughtSignature}
+				// Gemini returns the thoughtSignature at the PART level, not
+				// inside functionCall — read it from there or it's lost.
+				if part.ThoughtSignature != "" {
+					tc.Metadata = map[string]string{"thoughtSignature": part.ThoughtSignature}
 				}
 				ch <- langrails.StreamEvent{
 					Type:     langrails.EventToolCall,
@@ -353,8 +355,10 @@ func (p *Provider) parseResponse(resp *response) *langrails.CompletionResponse {
 					Name:      part.FunctionCall.Name,
 					Arguments: string(args),
 				}
-				if part.FunctionCall.ThoughtSignature != "" {
-					tc.Metadata = map[string]string{"thoughtSignature": part.FunctionCall.ThoughtSignature}
+				// Gemini returns the thoughtSignature at the PART level, not
+				// inside functionCall — read it from there or it's lost.
+				if part.ThoughtSignature != "" {
+					tc.Metadata = map[string]string{"thoughtSignature": part.ThoughtSignature}
 				}
 				result.ToolCalls = append(result.ToolCalls, tc)
 			}
@@ -435,18 +439,18 @@ func convertMessages(req *langrails.CompletionRequest) []content {
 			for _, tc := range m.ToolCalls {
 				var args map[string]interface{}
 				_ = json.Unmarshal([]byte(tc.Arguments), &args)
-				fc := &functionCall{
+				p := part{FunctionCall: &functionCall{
 					Name: tc.Name,
 					Args: args,
-				}
+				}}
+				// Echo the thoughtSignature at the PART level (where Gemini
+				// expects it on replay), not inside functionCall.
 				if tc.Metadata != nil {
 					if sig, ok := tc.Metadata["thoughtSignature"]; ok {
-						fc.ThoughtSignature = sig
+						p.ThoughtSignature = sig
 					}
 				}
-				c.Parts = append(c.Parts, part{
-					FunctionCall: fc,
-				})
+				c.Parts = append(c.Parts, p)
 			}
 		default:
 			c.Parts = convertContentParts(m)
