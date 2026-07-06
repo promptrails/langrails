@@ -26,6 +26,7 @@ resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
 | **Reasoning** | Provider-agnostic `ReasoningEffort` (minimal/low/medium/high), reasoning text + token accounting |
 | **Web Search & Citations** | Provider-native search (`ServerTools`) with unified `Citations` |
 | **Prompt Caching** | `CacheControl` + cached/cache-creation token reporting |
+| **Agents** | Middleware-driven tool-calling loop (summarization, PII redaction, human-in-the-loop) |
 | **Chain** | Sequential multi-step prompt pipelines |
 | **Graph** | LangGraph-style stateful workflows with conditional routing |
 | **MCP** | Model Context Protocol client for external tools |
@@ -43,10 +44,33 @@ resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
 go get github.com/promptrails/langrails
 ```
 
-Requires Go 1.22+.
+Requires Go 1.26.3+ (see `go.mod`).
+
+## Documentation
+
+| | |
+|---|---|
+| [Getting Started](getting-started.md) | Installation, first request, error handling |
+| [Providers](providers.md) | All providers, config examples |
+| [Parameters](parameters.md) | All parameters, provider support matrix |
+| [Streaming](streaming.md) | Real-time token streaming |
+| [Reasoning](reasoning.md) | Reasoning effort, thinking output, tokens |
+| [Web Search & Citations](web-search.md) | Provider-native search + citations |
+| [Prompt Caching](caching.md) | Cache control + cached-token reporting |
+| [Vision / Multimodal](vision.md) | Images + text in messages |
+| [Structured Output](structured-output.md) | JSON schema + JSON mode |
+| [Prompt Templates](prompt-templates.md) | Jinja-style variable substitution |
+| [Memory](memory.md) | Conversation history management |
+| [Tool Calling](tool-calling.md) | Function calling + automatic tool loop |
+| [Agents (Middleware)](agents.md) | Middleware agent loop + built-in middleware |
+| [Chain](chain.md) | Sequential prompt pipelines |
+| [Graph](graph.md) | Stateful workflows, fan-out, subgraphs, streaming |
+| [Durable Execution](durable-execution.md) | Checkpointing, resume, time travel |
+| [MCP](mcp.md) | Model Context Protocol integration |
+| [A2A](a2a.md) | Agent-to-Agent protocol client + server |
+| [Retry & Fallback](retry-fallback.md) | Resilience patterns |
 
 ## Quick Links
 
 - [GitHub Repository](https://github.com/promptrails/langrails)
 - [Go Package Reference](https://pkg.go.dev/github.com/promptrails/langrails)
-- [Getting Started](getting-started.md)

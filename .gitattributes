@@ -1,0 +1,23 @@
+# Auto-detect text files and normalise line endings
+* text=auto
+
+# Go source
+*.go text diff=golang
+
+# Markdown
+*.md text diff=markdown
+
+# YAML / YML
+*.yml text
+*.yaml text
+
+# Shell scripts
+*.sh text eol=lf
+
+# Makefile
+Makefile text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.ico binary
