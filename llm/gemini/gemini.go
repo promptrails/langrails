@@ -258,7 +258,7 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest) ([]byte, e
 		}
 		schema := json.RawMessage(*req.OutputSchema)
 		r.GenerationConfig.ResponseMIMEType = "application/json"
-		r.GenerationConfig.ResponseSchema = &schema
+		r.GenerationConfig.ResponseJSONSchema = &schema
 	} else if req.ResponseFormat == langrails.ResponseFormatJSONObject {
 		if r.GenerationConfig == nil {
 			r.GenerationConfig = &generationConfig{}
