@@ -88,6 +88,16 @@ func TestProvider_Complete_StructuredOutput(t *testing.T) {
 		if req.GenerationConfig == nil || req.GenerationConfig.ResponseMIMEType != "application/json" {
 			t.Error("expected responseMimeType application/json")
 		}
+		if req.GenerationConfig.ResponseJSONSchema == nil {
+			t.Fatal("expected responseJsonSchema")
+		}
+		var gotSchema map[string]any
+		if err := json.Unmarshal(*req.GenerationConfig.ResponseJSONSchema, &gotSchema); err != nil {
+			t.Fatalf("responseJsonSchema is invalid: %v", err)
+		}
+		if gotSchema["additionalProperties"] != false {
+			t.Errorf("additionalProperties = %v, want false", gotSchema["additionalProperties"])
+		}
 
 		resp := response{
 			Candidates: []candidate{{
@@ -99,7 +109,7 @@ func TestProvider_Complete_StructuredOutput(t *testing.T) {
 	}))
 	defer server.Close()
 
-	schema := []byte(`{"type":"object","properties":{"sentiment":{"type":"string"}}}`)
+	schema := []byte(`{"type":"object","additionalProperties":false,"properties":{"sentiment":{"type":"string"}}}`)
 	provider := New("key", WithBaseURL(server.URL))
 	resp, err := provider.Complete(context.Background(), &langrails.CompletionRequest{
 		Model:        "gemini-2.0-flash",
@@ -347,8 +357,8 @@ func TestProvider_JSONMode(t *testing.T) {
 		if req.GenerationConfig == nil || req.GenerationConfig.ResponseMIMEType != "application/json" {
 			t.Errorf("expected responseMimeType application/json, got %+v", req.GenerationConfig)
 		}
-		if req.GenerationConfig.ResponseSchema != nil {
-			t.Error("JSON mode must not carry a responseSchema")
+		if req.GenerationConfig.ResponseJSONSchema != nil {
+			t.Error("JSON mode must not carry a responseJsonSchema")
 		}
 		resp := response{Candidates: []candidate{{Content: content{Parts: []part{{Text: "{}"}}}, FinishReason: "STOP"}}}
 		_ = json.NewEncoder(w).Encode(resp)

@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.8.2] - 2026-08-05
+
+- gemini: send structured outputs through `responseJsonSchema` so standard JSON Schema keywords are accepted
+
 ## [v0.8.1] - 2026-07-05
 
 - gemini: read/write thoughtSignature at the part level, not inside functionCall
