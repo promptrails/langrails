@@ -222,6 +222,35 @@ func TestProvider_ConvertMessages(t *testing.T) {
 	}
 }
 
+// An empty-content turn (e.g. a prior empty completion saved to history) must NOT
+// become part{Text:""} — that marshals to {} (omitempty) and Gemini 400s the whole
+// request with "contents[N].parts[0].data: required oneof field 'data' must have
+// one initialized field". The empty content is dropped instead.
+func TestProvider_ConvertMessages_DropsEmptyContent(t *testing.T) {
+	req := &langrails.CompletionRequest{
+		Messages: []langrails.Message{
+			{Role: "user", Content: "Hello"},
+			{Role: "assistant", Content: ""}, // empty completion, no tool calls
+			{Role: "user", Content: "list existing flows"},
+		},
+	}
+	msgs := convertMessages(req)
+	if len(msgs) != 2 {
+		t.Fatalf("expected the empty-content turn dropped (2 messages), got %d", len(msgs))
+	}
+	// No emitted part may marshal to an empty object — that is exactly what Gemini rejects.
+	for i, c := range msgs {
+		if len(c.Parts) == 0 {
+			t.Fatalf("contents[%d] has no parts", i)
+		}
+		for j, p := range c.Parts {
+			if b, _ := json.Marshal(p); string(b) == "{}" {
+				t.Fatalf("contents[%d].parts[%d] marshalled to {} — Gemini would reject the request", i, j)
+			}
+		}
+	}
+}
+
 // Tool calls that carry NO thoughtSignature (e.g. produced by a fallback model
 // or a mid-conversation model switch) must be rendered as text, not functionCall
 // parts — otherwise Gemini 2.5+ rejects the whole request with "Function call is

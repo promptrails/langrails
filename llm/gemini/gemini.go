@@ -434,7 +434,9 @@ func convertMessages(req *langrails.CompletionRequest) []content {
 			for _, tc := range m.ToolCalls {
 				fmt.Fprintf(&b, "Called tool `%s` with arguments: %s\n", tc.Name, tc.Arguments)
 			}
-			c.Parts = []part{{Text: strings.TrimSpace(b.String())}}
+			if txt := strings.TrimSpace(b.String()); txt != "" {
+				c.Parts = []part{{Text: txt}}
+			}
 		case len(m.ToolCalls) > 0:
 			for _, tc := range m.ToolCalls {
 				var args map[string]interface{}
@@ -456,6 +458,15 @@ func convertMessages(req *langrails.CompletionRequest) []content {
 			c.Parts = convertContentParts(m)
 		}
 
+		// A part with no initialized data field — e.g. an empty-content turn
+		// yielding part{Text:""}, which marshals to {} because of omitempty —
+		// makes Gemini 400 the WHOLE request ("contents[N].parts[0].data:
+		// required oneof field 'data' must have one initialized field"). Drop any
+		// content that produced no renderable parts instead of emitting an empty
+		// one; an empty assistant turn carries no information to replay anyway.
+		if len(c.Parts) == 0 {
+			continue
+		}
 		contents = append(contents, c)
 	}
 
@@ -489,6 +500,11 @@ func toolCallKey(tc langrails.ToolCall) string {
 // (which Gemini resolves only for File API / Cloud Storage URIs).
 func convertContentParts(m langrails.Message) []part {
 	if len(m.ContentParts) == 0 {
+		// Empty content would become part{Text:""} → marshals to {} (omitempty) →
+		// Gemini rejects the request. Emit no part; the caller drops the content.
+		if m.Content == "" {
+			return nil
+		}
 		return []part{{Text: m.Content}}
 	}
 	var parts []part
@@ -502,6 +518,9 @@ func convertContentParts(m langrails.Message) []part {
 				parts = append(parts, part{FileData: &fileData{FileURI: url}})
 			}
 		default:
+			if cp.Text == "" {
+				continue
+			}
 			parts = append(parts, part{Text: cp.Text})
 		}
 	}
