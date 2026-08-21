@@ -282,6 +282,19 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest) ([]byte, e
 			tc.ThinkingBudget = &budget
 		}
 		r.GenerationConfig.ThinkingConfig = tc
+	} else if len(req.Tools) > 0 && isGemini25Flash(req.Model) {
+		// Gemini 2.5 Flash defaults to DYNAMIC thinking. Combined with function
+		// calling under a detailed agentic system prompt it intermittently
+		// returns an EMPTY candidate (finish=STOP, 0 output tokens) instead of a
+		// tool call — stalling tool-use loops. Flash (and flash-lite) support
+		// disabling thinking (budget 0), so do so for tool-use requests that did
+		// not explicitly ask for thinking. Structured-output / plain calls keep
+		// dynamic thinking, and callers can force it back on via Thinking.
+		if r.GenerationConfig == nil {
+			r.GenerationConfig = &generationConfig{}
+		}
+		zero := 0
+		r.GenerationConfig.ThinkingConfig = &thinkingConfig{ThinkingBudget: &zero}
 	}
 
 	if len(req.Tools) > 0 {
@@ -471,6 +484,15 @@ func convertMessages(req *langrails.CompletionRequest) []content {
 	}
 
 	return contents
+}
+
+// isGemini25Flash reports whether the model is a Gemini 2.5 Flash variant
+// (flash or flash-lite) — the models that both default to dynamic thinking AND
+// support disabling it (thinkingBudget 0). Pro cannot disable thinking; 2.0 has
+// none.
+func isGemini25Flash(model string) bool {
+	m := strings.ToLower(model)
+	return strings.Contains(m, "2.5") && strings.Contains(m, "flash")
 }
 
 // turnIsSigned reports whether any tool call in an assistant turn carries a

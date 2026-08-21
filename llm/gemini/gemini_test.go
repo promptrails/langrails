@@ -566,3 +566,33 @@ func TestParseResponsePartLevelThoughtSignature(t *testing.T) {
 		t.Errorf("thoughtSignature = %q, want sig-xyz (must be read from the part level)", got)
 	}
 }
+
+// TestThinkingDisabledForFlashToolUse locks the fix for Gemini 2.5 Flash
+// returning an empty candidate on function-calling turns: thinking is disabled
+// (budget 0) for flash tool-use requests that did not ask for thinking, but
+// left untouched for no-tool / structured-output calls, for Pro, and when the
+// caller explicitly enabled Thinking.
+func TestThinkingDisabledForFlashToolUse(t *testing.T) {
+	p := New("k")
+	tools := []langrails.ToolDefinition{{Name: "t", Parameters: json.RawMessage(`{"type":"object","properties":{}}`)}}
+	body := func(req *langrails.CompletionRequest) string {
+		b, err := p.buildRequestBody(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
+	}
+
+	if !strings.Contains(body(&langrails.CompletionRequest{Model: "gemini-2.5-flash", Tools: tools}), `"thinkingBudget":0`) {
+		t.Error("flash + tools (no explicit thinking) must disable thinking (thinkingBudget:0)")
+	}
+	if strings.Contains(body(&langrails.CompletionRequest{Model: "gemini-2.5-flash"}), `"thinkingConfig"`) {
+		t.Error("flash WITHOUT tools must keep dynamic thinking (no thinkingConfig)")
+	}
+	if strings.Contains(body(&langrails.CompletionRequest{Model: "gemini-2.5-flash", Tools: tools, Thinking: true}), `"thinkingBudget":0`) {
+		t.Error("explicit Thinking must not be overridden to budget 0")
+	}
+	if strings.Contains(body(&langrails.CompletionRequest{Model: "gemini-2.5-pro", Tools: tools}), `"thinkingConfig"`) {
+		t.Error("Pro must be left untouched (cannot disable thinking on pro)")
+	}
+}
