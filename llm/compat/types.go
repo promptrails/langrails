@@ -72,6 +72,11 @@ type toolCall struct {
 	ID       string       `json:"id"`
 	Type     string       `json:"type"`
 	Function functionCall `json:"function"`
+	// Metadata round-trips provider-specific data an OpenAI-compatible gateway
+	// surfaces — notably Gemini's thoughtSignature, which the model REQUIRES on
+	// replay of its own tool calls. Dropping it makes the next turn's call look
+	// unsigned; the provider then can't continue the turn and returns empty.
+	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
 type functionCall struct {
@@ -173,7 +178,8 @@ type streamDelta struct {
 }
 
 type streamToolCall struct {
-	Index    int          `json:"index"`
-	ID       string       `json:"id"`
-	Function functionCall `json:"function"`
+	Index    int               `json:"index"`
+	ID       string            `json:"id"`
+	Function functionCall      `json:"function"`
+	Metadata map[string]string `json:"metadata,omitempty"`
 }

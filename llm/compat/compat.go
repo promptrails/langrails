@@ -199,6 +199,9 @@ func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<-
 			if tc.Function.Name != "" {
 				pendingToolCalls[tc.Index].Name = tc.Function.Name
 			}
+			if len(tc.Metadata) > 0 {
+				pendingToolCalls[tc.Index].Metadata = tc.Metadata
+			}
 			pendingToolCalls[tc.Index].Arguments += tc.Function.Arguments
 		}
 
@@ -381,6 +384,7 @@ func (p *Provider) parseResponse(resp *response) *langrails.CompletionResponse {
 				ID:        tc.ID,
 				Name:      tc.Function.Name,
 				Arguments: tc.Function.Arguments,
+				Metadata:  tc.Metadata,
 			})
 		}
 
@@ -462,6 +466,7 @@ func convertMessages(req *langrails.CompletionRequest) []message {
 						Name:      tc.Name,
 						Arguments: tc.Arguments,
 					},
+					Metadata: tc.Metadata,
 				})
 			}
 		}

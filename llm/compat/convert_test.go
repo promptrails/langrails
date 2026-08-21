@@ -1,10 +1,30 @@
 package compat
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/promptrails/langrails"
 )
+
+// TestToolCallMetadataJSON locks the wire contract: a tool call's provider
+// metadata (Gemini thoughtSignature) must both parse from and serialize to the
+// `metadata` field. Without it the compat client silently drops the signature,
+// the replayed tool call looks unsigned, and the model returns an empty turn.
+func TestToolCallMetadataJSON(t *testing.T) {
+	var tc toolCall
+	if err := json.Unmarshal([]byte(`{"id":"c1","type":"function","function":{"name":"f","arguments":"{}"},"metadata":{"thoughtSignature":"sig"}}`), &tc); err != nil {
+		t.Fatal(err)
+	}
+	if tc.Metadata["thoughtSignature"] != "sig" {
+		t.Fatalf("metadata not parsed from response: %+v", tc)
+	}
+	b, _ := json.Marshal(tc)
+	if !strings.Contains(string(b), `"metadata":{"thoughtSignature":"sig"}`) {
+		t.Fatalf("metadata not serialized on request: %s", b)
+	}
+}
 
 func TestConvertMessages(t *testing.T) {
 	req := &langrails.CompletionRequest{
@@ -21,7 +41,7 @@ func TestConvertMessages(t *testing.T) {
 				Role:    "assistant",
 				Content: "let me check",
 				ToolCalls: []langrails.ToolCall{
-					{ID: "c1", Name: "get_weather", Arguments: `{"city":"Paris"}`},
+					{ID: "c1", Name: "get_weather", Arguments: `{"city":"Paris"}`, Metadata: map[string]string{"thoughtSignature": "sig-xyz"}},
 				},
 			},
 			{Role: "tool", ToolCallID: "c1", Content: `{"temp":20}`},
@@ -60,6 +80,11 @@ func TestConvertMessages(t *testing.T) {
 	tc := msgs[2].ToolCalls[0]
 	if tc.ID != "c1" || tc.Type != "function" || tc.Function.Name != "get_weather" || tc.Function.Arguments != `{"city":"Paris"}` {
 		t.Errorf("tool call = %+v", tc)
+	}
+	// The provider metadata (Gemini thoughtSignature) MUST survive the round-trip;
+	// dropping it makes the replayed call look unsigned and the model returns empty.
+	if tc.Metadata["thoughtSignature"] != "sig-xyz" {
+		t.Errorf("tool call metadata = %+v, want thoughtSignature=sig-xyz", tc.Metadata)
 	}
 
 	// tool result message carries the tool_call_id
