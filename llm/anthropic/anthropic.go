@@ -140,7 +140,7 @@ func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<-
 
 	reader := sse.NewReader(body)
 	var pendingToolCalls []langrails.ToolCall
-	var currentToolIndex int = -1
+	currentToolIndex := -1
 
 	for {
 		select {

@@ -162,12 +162,12 @@ func TestProvider_Stream(t *testing.T) {
 	var usage *langrails.TokenUsage
 	var sawDone bool
 	for ev := range ch {
-		switch {
-		case ev.Type == langrails.EventContent:
+		switch ev.Type {
+		case langrails.EventContent:
 			content.WriteString(ev.Content)
-		case ev.Type == langrails.EventDone:
+		case langrails.EventDone:
 			sawDone = true
-		case ev.Type == langrails.EventError:
+		case langrails.EventError:
 			t.Fatalf("unexpected error event: %v", ev.Error)
 		}
 		if ev.Usage != nil {
