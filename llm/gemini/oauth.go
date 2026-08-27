@@ -21,7 +21,7 @@ import (
 
 const (
 	vertexScope     = "https://www.googleapis.com/auth/cloud-platform"
-	defaultTokenURI = "https://oauth2.googleapis.com/token"
+	defaultTokenURI = "https://oauth2.googleapis.com/token" //nosec G101 -- public OAuth2 token endpoint URL, not a credential
 )
 
 type serviceAccountKey struct {
