@@ -23,12 +23,28 @@ type Provider struct {
 	apiKey  string
 	baseURL string
 	client  *http.Client
+
+	// Vertex AI mode (opt-in via WithVertex). When set, requests go to the
+	// region's aiplatform endpoint under vertexProject and authenticate with a
+	// Bearer token from tokenSource instead of the generativelanguage endpoint
+	// with an API key. The request/response wire format is identical, so only
+	// the URL and the auth differ.
+	vertexProject string
+	vertexRegion  string
+	tokenSource   TokenSource
+}
+
+// TokenSource yields an OAuth2 bearer token for Vertex AI requests. It must be
+// safe for concurrent use and is expected to cache/refresh internally.
+type TokenSource interface {
+	Token(ctx context.Context) (string, error)
 }
 
 // Option configures the Gemini provider.
 type Option func(*Provider)
 
-// WithBaseURL sets a custom base URL.
+// WithBaseURL sets a custom base URL. In Vertex mode it overrides the derived
+// `https://{region}-aiplatform.googleapis.com/v1` prefix (used by tests).
 func WithBaseURL(url string) Option {
 	return func(p *Provider) {
 		p.baseURL = url
@@ -40,6 +56,52 @@ func WithHTTPClient(client *http.Client) Option {
 	return func(p *Provider) {
 		p.client = client
 	}
+}
+
+// WithVertex switches the provider to Google Cloud Vertex AI. Requests go to
+// `{region}-aiplatform.googleapis.com` under projectID and authenticate with a
+// Bearer token from ts (see NewServiceAccountTokenSource) instead of an API key.
+// Vertex is region-based, so — unlike the generativelanguage.googleapis.com
+// API-key endpoint — it is not subject to the caller-IP geo restriction
+// ("User location is not supported for the API use"). The wire format is
+// identical to the Gemini API, so everything below Complete/Stream is shared.
+// Call New with an empty apiKey when using this.
+func WithVertex(projectID, region string, ts TokenSource) Option {
+	return func(p *Provider) {
+		p.vertexProject = projectID
+		p.vertexRegion = region
+		p.tokenSource = ts
+	}
+}
+
+func (p *Provider) isVertex() bool { return p.vertexProject != "" && p.tokenSource != nil }
+
+func (p *Provider) providerName() string {
+	if p.isVertex() {
+		return "vertex"
+	}
+	return "gemini"
+}
+
+// buildURL constructs the endpoint for a model + method ("generateContent" or
+// "streamGenerateContent"), branching on Vertex vs the API-key endpoint.
+func (p *Provider) buildURL(model, method string, stream bool) string {
+	if p.isVertex() {
+		base := p.baseURL
+		if base == "" || base == defaultBaseURL {
+			base = fmt.Sprintf("https://%s-aiplatform.googleapis.com/v1", p.vertexRegion)
+		}
+		u := fmt.Sprintf("%s/projects/%s/locations/%s/publishers/google/models/%s:%s",
+			base, p.vertexProject, p.vertexRegion, model, method)
+		if stream {
+			u += "?alt=sse"
+		}
+		return u
+	}
+	if stream {
+		return fmt.Sprintf("%s/%s:%s?alt=sse&key=%s", p.baseURL, model, method, p.apiKey)
+	}
+	return fmt.Sprintf("%s/%s:%s?key=%s", p.baseURL, model, method, p.apiKey)
 }
 
 // New creates a new Gemini provider with the given API key and options.
@@ -62,7 +124,7 @@ func (p *Provider) Complete(ctx context.Context, req *langrails.CompletionReques
 		return nil, err
 	}
 
-	url := fmt.Sprintf("%s/%s:generateContent?key=%s", p.baseURL, req.Model, p.apiKey)
+	url := p.buildURL(req.Model, "generateContent", false)
 
 	respBody, err := p.doRequest(ctx, url, body)
 	if err != nil {
@@ -90,7 +152,7 @@ func (p *Provider) Stream(ctx context.Context, req *langrails.CompletionRequest)
 		return nil, err
 	}
 
-	url := fmt.Sprintf("%s/%s:streamGenerateContent?alt=sse&key=%s", p.baseURL, req.Model, p.apiKey)
+	url := p.buildURL(req.Model, "streamGenerateContent", true)
 
 	respBody, err := p.doRequest(ctx, url, body)
 	if err != nil {
@@ -110,9 +172,19 @@ func (p *Provider) doRequest(ctx context.Context, url string, body []byte) (io.R
 
 	httpReq.Header.Set("Content-Type", "application/json")
 
+	// Vertex authenticates with an OAuth2 bearer token; the API-key path carries
+	// its key in the URL and needs no header.
+	if p.isVertex() {
+		tok, err := p.tokenSource.Token(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("vertex: obtain access token: %w", err)
+		}
+		httpReq.Header.Set("Authorization", "Bearer "+tok)
+	}
+
 	resp, err := p.client.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("gemini: request failed: %w", err)
+		return nil, fmt.Errorf("%s: request failed: %w", p.providerName(), err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -128,7 +200,7 @@ func (p *Provider) doRequest(ctx context.Context, url string, body []byte) (io.R
 		return nil, &langrails.APIError{
 			StatusCode: resp.StatusCode,
 			Message:    msg,
-			Provider:   "gemini",
+			Provider:   p.providerName(),
 		}
 	}
 
