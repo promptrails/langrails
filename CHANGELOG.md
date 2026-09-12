@@ -4,6 +4,26 @@
 
 - gemini: map provider-agnostic reasoning effort to Gemini 3 `thinkingLevel`
 
+## [v0.9.0] - 2026-08-27
+
+- gemini: opt-in Vertex AI backend, selected by region, so a deployment whose egress IP Gemini geo-blocks can reach the same models
+
+## [v0.8.6] - 2026-08-23
+
+- build: Go 1.27, golangci-lint v2
+
+## [v0.8.5] - 2026-08-21
+
+- gemini: stop sending a thinking config with 2.5-flash function calling, which returned empty completions
+
+## [v0.8.4] - 2026-08-21
+
+- compat: round-trip tool-call metadata, so a Gemini thoughtSignature survives a turn through an OpenAI-shaped provider
+
+## [v0.8.3] - 2026-08-21
+
+- gemini: drop empty content parts and turns, which Gemini rejects with a 400
+
 ## [v0.8.2] - 2026-08-05
 
 - gemini: send structured outputs through `responseJsonSchema` so standard JSON Schema keywords are accepted
