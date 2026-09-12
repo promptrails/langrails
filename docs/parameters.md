@@ -201,7 +201,7 @@ resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
 |----------|--------|----------------|
 | Anthropic | `thinking` block with `budget_tokens` | `resp.Thinking` |
 | OpenAI | `reasoning.effort` (minimal/low/medium/high) | `resp.Thinking` (reasoning models) |
-| Gemini | `thinkingConfig` (2.5+) | `resp.Thinking` |
+| Gemini | `thinkingConfig` (`thinkingLevel` on 3.x, token budget on 2.5) | `resp.Thinking` |
 | Bedrock | `reasoning_config` (Claude models) | `resp.Thinking` |
 
 ### ReasoningEffort

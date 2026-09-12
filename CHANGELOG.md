@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.9.1] - 2026-09-12
+
+- gemini: map provider-agnostic reasoning effort to Gemini 3 `thinkingLevel`
+
 ## [v0.8.2] - 2026-08-05
 
 - gemini: send structured outputs through `responseJsonSchema` so standard JSON Schema keywords are accepted

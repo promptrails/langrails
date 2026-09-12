@@ -338,20 +338,27 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest) ([]byte, e
 		r.GenerationConfig.ResponseMIMEType = "application/json"
 	}
 
-	// Reasoning / thinking (Gemini 2.5+)
+	// Reasoning / thinking. Gemini 3 uses named thinking levels; Gemini 2.5
+	// uses token budgets. Keep the legacy Thinking/ThinkingBudget behavior for
+	// callers that request it without a provider-agnostic ReasoningEffort.
 	if req.Thinking || req.ReasoningEffort != "" {
 		if r.GenerationConfig == nil {
 			r.GenerationConfig = &generationConfig{}
 		}
 		tc := &thinkingConfig{IncludeThoughts: true}
-		budget := 0
-		if req.ThinkingBudget != nil {
-			budget = *req.ThinkingBudget
+		if req.ReasoningEffort != "" && isGemini3(req.Model) {
+			level := string(req.ReasoningEffort)
+			tc.ThinkingLevel = &level
 		} else {
-			budget = req.ReasoningEffort.BudgetTokens()
-		}
-		if budget > 0 {
-			tc.ThinkingBudget = &budget
+			budget := 0
+			if req.ThinkingBudget != nil {
+				budget = *req.ThinkingBudget
+			} else {
+				budget = req.ReasoningEffort.BudgetTokens()
+			}
+			if budget > 0 {
+				tc.ThinkingBudget = &budget
+			}
 		}
 		r.GenerationConfig.ThinkingConfig = tc
 	} else if len(req.Tools) > 0 && isGemini25Flash(req.Model) {
@@ -565,6 +572,14 @@ func convertMessages(req *langrails.CompletionRequest) []content {
 func isGemini25Flash(model string) bool {
 	m := strings.ToLower(model)
 	return strings.Contains(m, "2.5") && strings.Contains(m, "flash")
+}
+
+// isGemini3 reports whether model belongs to the Gemini 3 family. Gemini 3
+// accepts named thinkingLevel values and recommends them over the legacy
+// numeric thinkingBudget used by Gemini 2.5.
+func isGemini3(model string) bool {
+	m := strings.ToLower(model)
+	return strings.HasPrefix(m, "gemini-3")
 }
 
 // turnIsSigned reports whether any tool call in an assistant turn carries a

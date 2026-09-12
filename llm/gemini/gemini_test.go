@@ -545,6 +545,36 @@ func TestProvider_Reasoning(t *testing.T) {
 	}
 }
 
+func TestProvider_Gemini3ReasoningUsesThinkingLevel(t *testing.T) {
+	p := New("key")
+	body, err := p.buildRequestBody(&langrails.CompletionRequest{
+		Model:           "gemini-3.6-flash",
+		Messages:        []langrails.Message{{Role: "user", Content: "hi"}},
+		ReasoningEffort: langrails.ReasoningLow,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var req request
+	if err := json.Unmarshal(body, &req); err != nil {
+		t.Fatal(err)
+	}
+	if req.GenerationConfig == nil || req.GenerationConfig.ThinkingConfig == nil {
+		t.Fatalf("expected thinkingConfig, got %+v", req.GenerationConfig)
+	}
+	tc := req.GenerationConfig.ThinkingConfig
+	if tc.ThinkingLevel == nil || *tc.ThinkingLevel != "low" {
+		t.Errorf("thinkingLevel = %v, want low", tc.ThinkingLevel)
+	}
+	if tc.ThinkingBudget != nil {
+		t.Errorf("thinkingBudget = %v, want nil for Gemini 3", tc.ThinkingBudget)
+	}
+	if !tc.IncludeThoughts {
+		t.Error("expected includeThoughts=true")
+	}
+}
+
 func TestParseResponsePartLevelThoughtSignature(t *testing.T) {
 	// Gemini returns thoughtSignature at the PART level (a sibling of
 	// functionCall). Parsing it from inside functionCall silently drops it,

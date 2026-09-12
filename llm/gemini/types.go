@@ -74,8 +74,9 @@ type generationConfig struct {
 }
 
 type thinkingConfig struct {
-	ThinkingBudget  *int `json:"thinkingBudget,omitempty"`
-	IncludeThoughts bool `json:"includeThoughts,omitempty"`
+	ThinkingBudget  *int    `json:"thinkingBudget,omitempty"`
+	ThinkingLevel   *string `json:"thinkingLevel,omitempty"`
+	IncludeThoughts bool    `json:"includeThoughts,omitempty"`
 }
 
 type toolDeclaration struct {

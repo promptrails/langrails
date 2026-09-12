@@ -9,7 +9,7 @@ Set `ReasoningEffort` on the request to one of `minimal`, `low`, `medium`, `high
 
 ```go
 resp, err := provider.Complete(ctx, &langrails.CompletionRequest{
-    Model:           "o3", // or claude-*, gemini-2.5-*, a Bedrock Claude model, ...
+    Model:           "o3", // or claude-*, gemini-*, a Bedrock Claude model, ...
     Messages:        []langrails.Message{{Role: "user", Content: "Prove that √2 is irrational."}},
     ReasoningEffort: langrails.ReasoningHigh,
 })
@@ -29,11 +29,14 @@ Gemini token budgets.
 |----------|---------|
 | OpenAI / compat | `reasoning.effort` = the effort string directly |
 | Anthropic | extended thinking with a token budget derived from effort (minimal=1024, low=4096, medium=8192, high=16384); `ThinkingBudget` overrides |
-| Gemini | `generationConfig.thinkingConfig` (`includeThoughts` + budget) |
+| Gemini 3 | `generationConfig.thinkingConfig.thinkingLevel` = the effort string directly |
+| Gemini 2.5 | `generationConfig.thinkingConfig` (`includeThoughts` + budget derived from effort) |
 | Bedrock | `additionalModelRequestFields.reasoning_config` (Claude models) |
 
 Providers that take a token budget derive it from the effort via
 `ReasoningEffort.BudgetTokens()`; pass `ThinkingBudget` to set an exact budget.
+For Gemini 3, prefer `ReasoningEffort`; numeric `ThinkingBudget` is retained only
+for legacy compatibility.
 
 ## Streaming reasoning
 
