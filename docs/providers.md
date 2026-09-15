@@ -14,7 +14,7 @@ provider, err := llm.New(llm.OpenAI, "sk-...")
 provider := llm.MustNew(llm.Anthropic, "sk-ant-...")
 ```
 
-Available constants: `llm.OpenAI`, `llm.Anthropic`, `llm.Gemini`, `llm.DeepSeek`, `llm.Groq`, `llm.Fireworks`, `llm.XAI`, `llm.OpenRouter`, `llm.Together`, `llm.Mistral`, `llm.Cohere`, `llm.Perplexity`, `llm.Ollama`, `llm.Chutes`, `llm.ZAI`, `llm.Moonshot`, `llm.Novita`, `llm.DeepInfra`, `llm.Friendli`, `llm.Cerebras`, `llm.SambaNova`, `llm.Hyperbolic`, `llm.DashScope`, `llm.HuggingFace`, `llm.Bedrock`
+Available constants: `llm.OpenAI`, `llm.Anthropic`, `llm.Gemini`, `llm.DeepSeek`, `llm.Groq`, `llm.Fireworks`, `llm.XAI`, `llm.OpenRouter`, `llm.Together`, `llm.Mistral`, `llm.Cohere`, `llm.Ollama`, `llm.Chutes`, `llm.ZAI`, `llm.Moonshot`, `llm.Novita`, `llm.DeepInfra`, `llm.Friendli`, `llm.Cerebras`, `llm.SambaNova`, `llm.Hyperbolic`, `llm.DashScope`, `llm.HuggingFace`, `llm.Bedrock`
 
 For provider-specific options (custom base URL, HTTP client), use the direct import instead.
 
@@ -33,7 +33,6 @@ For provider-specific options (custom base URL, HTTP client), use the direct imp
 | Together | `langrails/llm/together` | `api.together.xyz` | Bearer token |
 | Mistral | `langrails/llm/mistral` | `api.mistral.ai` | Bearer token |
 | Cohere | `langrails/llm/cohere` | `api.cohere.com` | Bearer token |
-| Perplexity | `langrails/llm/perplexity` | `api.perplexity.ai` | Bearer token |
 | Ollama | `langrails/llm/ollama` | `localhost:11434` | None (local) |
 | Chutes AI | `langrails/llm/chutes` | `llm.chutes.ai` | Bearer token |
 | Z.AI | `langrails/llm/zai` | `api.z.ai` | Bearer token |
@@ -58,14 +57,14 @@ For provider-specific options (custom base URL, HTTP client), use the direct imp
 | Structured output | Yes (JSON schema) | Yes (tool-based) | Yes (responseSchema) | Yes (tool-based) | Yes (JSON schema) |
 | JSON mode | Yes | No | Yes | No | Yes |
 | Reasoning | effort | effort/budget | effort/budget | effort/budget | effort (varies) |
-| Web search | Yes (web_search) | Yes (web_search) | Yes (googleSearch) | No | Perplexity/online |
-| Citations | Yes | Yes | Yes | No | Perplexity/OpenRouter |
+| Web search | Yes (web_search) | Yes (web_search) | Yes (googleSearch) | No | provider-specific |
+| Citations | Yes | Yes | Yes | No | OpenRouter |
 | Prompt caching | implicit | cache_control | implicit | cachePoint | implicit (varies) |
 | Vision | Yes | Yes | Yes | Yes (base64) | Varies |
 | System prompt | message | separate field | systemInstruction | separate field | message |
 | Max tokens default | provider default | 4096 (required) | provider default | 4096 | provider default |
 
-*Compat = DeepSeek, Groq, Fireworks, xAI, OpenRouter, Together, Mistral, Cohere, Perplexity, Ollama, Chutes, Z.AI, Moonshot, Novita, DeepInfra, Friendli, Cerebras, SambaNova, Hyperbolic, DashScope, Hugging Face Router
+*Compat = DeepSeek, Groq, Fireworks, xAI, OpenRouter, Together, Mistral, Cohere, Ollama, Chutes, Z.AI, Moonshot, Novita, DeepInfra, Friendli, Cerebras, SambaNova, Hyperbolic, DashScope, Hugging Face Router
 
 Reasoning, web search, citations and caching behavior varies across compat providers; see [Reasoning](reasoning.md), [Web Search & Citations](web-search.md) and [Prompt Caching](caching.md) for details.
 
@@ -203,21 +202,6 @@ provider := cohere.New("your-api-key")
 ```
 
 **Models**: command-r-plus, command-r, command-light
-
-## Perplexity
-
-```go
-import "github.com/promptrails/langrails/llm/perplexity"
-
-provider := perplexity.New("your-api-key")
-```
-
-**Models**: sonar-pro, sonar, sonar-deep-research, sonar-reasoning-pro, sonar-reasoning
-
-**Notes**:
-- Search-augmented LLM — responses include web search results
-- Responses may include `citations` in metadata
-- OpenAI-compatible API
 
 ## Ollama
 

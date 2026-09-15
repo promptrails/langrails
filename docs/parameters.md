@@ -317,7 +317,6 @@ resp, err := provider.Complete(ctx, &langrails.CompletionRequest{
 \* Anthropic requires max_tokens (defaults to 4096)
 \** OpenAI uses reasoning effort for o-series / reasoning models
 \*** DeepSeek R1 supports reasoning via OpenAI-compatible API
-\**** Perplexity sonar models search implicitly (no flag needed)
 
 Bedrock (Converse) is not shown above: it supports ToolChoice (no "none"),
 reasoning (Claude models), prompt caching (cachePoint) and vision, but not web

@@ -24,7 +24,6 @@ import (
 	"github.com/promptrails/langrails/llm/ollama"
 	"github.com/promptrails/langrails/llm/openai"
 	"github.com/promptrails/langrails/llm/openrouter"
-	"github.com/promptrails/langrails/llm/perplexity"
 	"github.com/promptrails/langrails/llm/sambanova"
 	"github.com/promptrails/langrails/llm/together"
 	"github.com/promptrails/langrails/llm/xai"
@@ -46,7 +45,6 @@ const (
 	Together    ProviderName = "together"
 	Mistral     ProviderName = "mistral"
 	Cohere      ProviderName = "cohere"
-	Perplexity  ProviderName = "perplexity"
 	Ollama      ProviderName = "ollama"
 	Chutes      ProviderName = "chutes"
 	ZAI         ProviderName = "zai"
@@ -96,8 +94,6 @@ func New(name ProviderName, apiKey string) (langrails.Provider, error) {
 		return mistral.New(apiKey), nil
 	case Cohere:
 		return cohere.New(apiKey), nil
-	case Perplexity:
-		return perplexity.New(apiKey), nil
 	case Ollama:
 		return ollama.New(), nil
 	case Chutes:
@@ -142,7 +138,7 @@ func MustNew(name ProviderName, apiKey string) langrails.Provider {
 func AllProviders() []ProviderName {
 	return []ProviderName{
 		OpenAI, Anthropic, Gemini, DeepSeek, Groq, Fireworks,
-		XAI, OpenRouter, Together, Mistral, Cohere, Perplexity, Ollama,
+		XAI, OpenRouter, Together, Mistral, Cohere, Ollama,
 		Chutes, ZAI, Moonshot, Novita, DeepInfra, Friendli,
 		Cerebras, SambaNova, Hyperbolic, DashScope, HuggingFace, Bedrock,
 	}

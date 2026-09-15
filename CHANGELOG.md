@@ -1,5 +1,28 @@
 # Changelog
 
+## [v0.10.0] - 2026-09-15
+
+**Breaking: the `llm/perplexity` provider is removed**, along with the
+`llm.Perplexity` constant. `llm.New("perplexity", key)` now returns an
+unsupported-provider error.
+
+Perplexity retires the chat-completions API this provider spoke on 2026-09-27,
+replacing it with an Agent API at `/v1/agent`. After that date the package
+reaches no models at all, so it is removed rather than left to fail at run
+time. Pin `v0.9.2` if you need it for the remaining days.
+
+The Agent API needs a new provider rather than a changed base URL: it takes an
+`input` field and returns a typed `output` array of `message`, `search_results`
+and `fetch_url_results` items. It is not written here yet because the published
+documentation does not state how a multi-turn conversation is sent, whether
+streaming exists, or whether `tools` means function calling or only
+Perplexity's own `web_search` — which is both methods of `Provider` plus its
+core data structure. It waits for documentation or a verified integration
+rather than guesses.
+
+`compat` keeps its Perplexity-style top-level `citations` handling: that is a
+wire format other providers use too, not this provider.
+
 ## [v0.9.2] - 2026-09-15
 
 - openai: send reasoning effort as the documented top-level `reasoning_effort` string. compat serialized the OpenRouter `{"reasoning":{"effort":...}}` object for every provider, which OpenAI does not read, so the setting was a silent no-op against it

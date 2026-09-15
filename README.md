@@ -31,7 +31,7 @@ go get github.com/promptrails/langrails
 
 ## Features
 
-- **25 providers** — OpenAI, Anthropic, Gemini, DeepSeek, Groq, Fireworks, xAI, OpenRouter, Together, Mistral, Cohere, Perplexity, Ollama, Chutes AI, Z.AI, Moonshot (Kimi), Novita AI, DeepInfra, Friendli AI, Cerebras, SambaNova, Hyperbolic, Alibaba DashScope (Qwen), Hugging Face Router, Amazon Bedrock (Converse API)
+- **24 providers** — OpenAI, Anthropic, Gemini, DeepSeek, Groq, Fireworks, xAI, OpenRouter, Together, Mistral, Cohere, Ollama, Chutes AI, Z.AI, Moonshot (Kimi), Novita AI, DeepInfra, Friendli AI, Cerebras, SambaNova, Hyperbolic, Alibaba DashScope (Qwen), Hugging Face Router, Amazon Bedrock (Converse API)
 - **Streaming** — Channel-based, idiomatic Go
 - **Tool calling** — Unified interface + automatic tool execution loop, with `ToolChoice` control
 - **Reasoning** — Provider-agnostic `ReasoningEffort` (minimal/low/medium/high), reasoning text + token accounting
