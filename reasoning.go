@@ -7,8 +7,15 @@ package langrails
 type ReasoningEffort string
 
 const (
-	// ReasoningOff disables reasoning (the zero value).
+	// ReasoningOff leaves reasoning unset (the zero value): the provider is
+	// told nothing and applies its own default.
 	ReasoningOff ReasoningEffort = ""
+	// ReasoningNone explicitly turns reasoning OFF, which is not the same as
+	// leaving it unset. Models that reason by default need to be told, and
+	// OpenAI's chat/completions rejects function tools on such a model unless
+	// the effort is explicitly "none". Providers with no way to express this
+	// treat it as unset.
+	ReasoningNone ReasoningEffort = "none"
 	// ReasoningMinimal requests the least reasoning effort.
 	ReasoningMinimal ReasoningEffort = "minimal"
 	// ReasoningLow requests low reasoning effort.
@@ -31,9 +38,17 @@ const (
 	ResponseFormatJSONObject ResponseFormatType = "json_object"
 )
 
+// Requested reports whether the caller asked for reasoning to be ON. Both the
+// unset zero value and an explicit "none" return false, so a provider that
+// enables thinking on any non-empty effort does not switch it on for a value
+// that means the opposite.
+func (e ReasoningEffort) Requested() bool {
+	return e != ReasoningOff && e != ReasoningNone
+}
+
 // BudgetTokens maps a reasoning effort level to an approximate thinking-token
 // budget, for providers that take a token budget rather than an effort level.
-// It returns 0 for ReasoningOff.
+// It returns 0 for ReasoningOff and ReasoningNone.
 func (e ReasoningEffort) BudgetTokens() int {
 	switch e {
 	case ReasoningMinimal:

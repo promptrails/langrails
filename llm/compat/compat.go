@@ -29,7 +29,30 @@ type Config struct {
 	// HTTPClient is an optional custom HTTP client. If nil, a default
 	// client with a 5-minute timeout is used.
 	HTTPClient *http.Client
+
+	// ReasoningStyle selects how reasoning effort is put on the wire. The
+	// "OpenAI-compatible" providers agree on almost everything and not on
+	// this, so it cannot be inferred from the endpoint shape. Defaults to
+	// ReasoningStyleObject, which is what every provider here used before the
+	// field existed.
+	ReasoningStyle ReasoningStyle
 }
+
+// ReasoningStyle is the wire form a provider expects for reasoning effort.
+type ReasoningStyle int
+
+const (
+	// ReasoningStyleObject sends {"reasoning": {"effort": "..."}}, the
+	// OpenRouter form. The zero value, so providers that do not set this keep
+	// the behavior they had.
+	ReasoningStyleObject ReasoningStyle = iota
+
+	// ReasoningStyleEffortField sends {"reasoning_effort": "..."}, which is
+	// what OpenAI's own chat/completions API documents and what its errors
+	// name. Providers on this style can also express an explicit "none",
+	// which the object form has no way to say.
+	ReasoningStyleEffortField
+)
 
 // Provider implements langrails.Provider for OpenAI-compatible APIs.
 type Provider struct {
@@ -264,10 +287,17 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream boo
 
 	// Reasoning effort. An explicit ReasoningEffort wins; otherwise fall back to
 	// the legacy Thinking + ThinkingBudget heuristic for backward compatibility.
-	if req.ReasoningEffort != "" {
-		oaiReq.Reasoning = &reasoningParam{Effort: string(req.ReasoningEffort)}
-	} else if req.Thinking {
-		effort := "medium"
+	//
+	// ReasoningNone is deliberately carried through rather than dropped: on the
+	// effort-field style it is the whole point, since a model that reasons by
+	// default has to be told not to. On the object style it is unrepresentable,
+	// so it falls through to "say nothing", which is the closest that form gets.
+	effort := ""
+	switch {
+	case req.ReasoningEffort != "":
+		effort = string(req.ReasoningEffort)
+	case req.Thinking:
+		effort = "medium"
 		if req.ThinkingBudget != nil {
 			if *req.ThinkingBudget <= 1024 {
 				effort = "low"
@@ -275,7 +305,13 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream boo
 				effort = "high"
 			}
 		}
-		oaiReq.Reasoning = &reasoningParam{Effort: effort}
+	}
+	if effort != "" {
+		if p.config.ReasoningStyle == ReasoningStyleEffortField {
+			oaiReq.ReasoningEffort = effort
+		} else if req.ReasoningEffort.Requested() || req.Thinking {
+			oaiReq.Reasoning = &reasoningParam{Effort: effort}
+		}
 	}
 
 	if len(req.Tools) > 0 {

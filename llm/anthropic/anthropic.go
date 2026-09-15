@@ -261,7 +261,7 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream boo
 
 	// Extended thinking. Enabled by Thinking or an explicit ReasoningEffort.
 	// Budget precedence: explicit ThinkingBudget > effort-derived budget > default.
-	if req.Thinking || req.ReasoningEffort != "" {
+	if req.Thinking || req.ReasoningEffort.Requested() {
 		budget := 10000 // default
 		if req.ThinkingBudget != nil {
 			budget = *req.ThinkingBudget

@@ -302,7 +302,7 @@ func buildRequestBody(req *langrails.CompletionRequest) ([]byte, error) {
 	// Reasoning. Carried via additionalModelRequestFields (model-family specific;
 	// the thinking form is for Anthropic Claude models on Bedrock — it mirrors
 	// Anthropic's native thinking field passed through Converse).
-	if req.Thinking || req.ReasoningEffort != "" {
+	if req.Thinking || req.ReasoningEffort.Requested() {
 		budget := 0
 		if req.ThinkingBudget != nil {
 			budget = *req.ThinkingBudget

@@ -87,3 +87,36 @@ func TestProvider_Stream(t *testing.T) {
 		t.Errorf("expected 'Hi', got %q", content)
 	}
 }
+
+// TestOpenAISendsReasoningEffortNotTheObject drives New(), not compat.Config.
+//
+// The wiring is the whole fix: compat defaults to the {"reasoning":{...}}
+// object, which OpenAI does not read, so for as long as this package took the
+// default the reasoning-effort setting was a silent no-op against OpenAI. A
+// test that built a compat.Config itself would pass with that wiring missing.
+func TestOpenAISendsReasoningEffortNotTheObject(t *testing.T) {
+	var body map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decode body: %v", err)
+		}
+		_ = json.NewEncoder(w).Encode(oaiResponse())
+	}))
+	defer server.Close()
+
+	_, err := New("key", WithBaseURL(server.URL)).Complete(context.Background(), &langrails.CompletionRequest{
+		Model:           "gpt-5.6-terra",
+		Messages:        []langrails.Message{{Role: "user", Content: "Hi"}},
+		ReasoningEffort: langrails.ReasoningNone,
+		Tools:           []langrails.ToolDefinition{{Name: "search", Parameters: json.RawMessage(`{"type":"object"}`)}},
+	})
+	if err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+	if got := body["reasoning_effort"]; got != "none" {
+		t.Fatalf(`body["reasoning_effort"] = %v, want "none"`, got)
+	}
+	if _, ok := body["reasoning"]; ok {
+		t.Fatal("OpenAI must not be sent the OpenRouter object form")
+	}
+}

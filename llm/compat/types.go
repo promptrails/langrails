@@ -19,6 +19,7 @@ type request struct {
 	ToolChoice       interface{}       `json:"tool_choice,omitempty"` // string or toolChoiceFunction
 	ResponseFormat   *responseFormat   `json:"response_format,omitempty"`
 	Reasoning        *reasoningParam   `json:"reasoning,omitempty"`
+	ReasoningEffort  string            `json:"reasoning_effort,omitempty"`
 	WebSearchOptions *webSearchOptions `json:"web_search_options,omitempty"`
 }
 

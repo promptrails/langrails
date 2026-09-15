@@ -3,6 +3,7 @@ package compat
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -729,4 +730,87 @@ func jsonEqual(a, b interface{}) bool {
 	ab, _ := json.Marshal(a)
 	bb, _ := json.Marshal(b)
 	return string(ab) == string(bb)
+}
+
+// bodyKeysFor runs one completion against a stub and returns the decoded raw
+// JSON body. Every reasoning test below reads the body rather than decoding
+// into `request`: the defect these cover was the struct being serialized under
+// a key OpenAI does not read, and a test that decodes into the same struct
+// round-trips that mistake and stays green.
+func bodyKeysFor(t *testing.T, cfg Config, req *langrails.CompletionRequest) map[string]any {
+	t.Helper()
+	var body map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		if err := json.Unmarshal(raw, &body); err != nil {
+			t.Errorf("request body is not JSON: %v", err)
+		}
+		resp := response{Choices: []choice{{Message: choiceMessage{Content: "ok"}, FinishReason: "stop"}}}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	cfg.BaseURL = server.URL
+	cfg.APIKey = "key"
+	if cfg.Name == "" {
+		cfg.Name = "test"
+	}
+	if _, err := New(cfg).Complete(context.Background(), req); err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+	return body
+}
+
+func TestReasoningStyleDecidesTheWireKey(t *testing.T) {
+	ask := &langrails.CompletionRequest{
+		Model:           "some-model",
+		Messages:        []langrails.Message{{Role: "user", Content: "Hi"}},
+		ReasoningEffort: langrails.ReasoningHigh,
+	}
+
+	t.Run("effort field", func(t *testing.T) {
+		body := bodyKeysFor(t, Config{ReasoningStyle: ReasoningStyleEffortField}, ask)
+		if got := body["reasoning_effort"]; got != "high" {
+			t.Fatalf(`body["reasoning_effort"] = %v, want "high"`, got)
+		}
+		if _, ok := body["reasoning"]; ok {
+			t.Fatal("the object form must not be sent alongside the effort field")
+		}
+	})
+
+	t.Run("object", func(t *testing.T) {
+		body := bodyKeysFor(t, Config{}, ask)
+		obj, ok := body["reasoning"].(map[string]any)
+		if !ok || obj["effort"] != "high" {
+			t.Fatalf(`body["reasoning"] = %v, want {"effort":"high"}`, body["reasoning"])
+		}
+		if _, ok := body["reasoning_effort"]; ok {
+			t.Fatal("the zero-value style must keep sending only the object form")
+		}
+	})
+}
+
+// TestReasoningNoneIsSentNotDropped is the production bug. OpenAI's
+// chat/completions refuses function tools on a model that reasons by default
+// unless the effort is explicitly "none", and omitting the field is not the
+// same as saying none — so this value has to survive all the way to the wire.
+func TestReasoningNoneIsSentNotDropped(t *testing.T) {
+	ask := &langrails.CompletionRequest{
+		Model:           "gpt-5.6-terra",
+		Messages:        []langrails.Message{{Role: "user", Content: "Hi"}},
+		ReasoningEffort: langrails.ReasoningNone,
+		Tools:           []langrails.ToolDefinition{{Name: "search", Parameters: json.RawMessage(`{"type":"object"}`)}},
+	}
+
+	body := bodyKeysFor(t, Config{ReasoningStyle: ReasoningStyleEffortField}, ask)
+	if got := body["reasoning_effort"]; got != "none" {
+		t.Fatalf(`body["reasoning_effort"] = %v, want "none" — dropping it is what broke the run`, got)
+	}
+
+	// The object form cannot express "none", so it must say nothing at all
+	// rather than invent {"effort":"none"} for a provider that never defined it.
+	body = bodyKeysFor(t, Config{}, ask)
+	if _, ok := body["reasoning"]; ok {
+		t.Fatalf(`body["reasoning"] = %v, want absent on a style that cannot express none`, body["reasoning"])
+	}
 }

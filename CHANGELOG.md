@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.9.2] - 2026-09-15
+
+- openai: send reasoning effort as the documented top-level `reasoning_effort` string. compat serialized the OpenRouter `{"reasoning":{"effort":...}}` object for every provider, which OpenAI does not read, so the setting was a silent no-op against it
+- compat: `Config.ReasoningStyle` picks the wire form; defaults to the object form, so the other 21 compat providers are unchanged
+- types: `ReasoningNone` ("none") explicitly turns reasoning OFF, which is distinct from `ReasoningOff` ("" — say nothing and let the provider default). OpenAI's chat/completions refuses function tools on a model that reasons by default unless the effort is explicitly "none"
+- anthropic, bedrock, gemini: treat `ReasoningNone` as off rather than as a request to think — these enable thinking on any non-empty effort, and bedrock would have read it as a 10k-token budget
+
 ## [v0.9.1] - 2026-09-12
 
 - gemini: map provider-agnostic reasoning effort to Gemini 3 `thinkingLevel`

@@ -40,6 +40,10 @@ func New(apiKey string, opts ...Option) *Provider {
 		Name:    "openai",
 		BaseURL: defaultBaseURL,
 		APIKey:  apiKey,
+		// OpenAI documents a top-level reasoning_effort string and names that
+		// parameter in its own errors; the {"reasoning":{...}} object is the
+		// OpenRouter form and OpenAI does not read it.
+		ReasoningStyle: compat.ReasoningStyleEffortField,
 	}
 	for _, opt := range opts {
 		opt(&cfg)

@@ -341,12 +341,12 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest) ([]byte, e
 	// Reasoning / thinking. Gemini 3 uses named thinking levels; Gemini 2.5
 	// uses token budgets. Keep the legacy Thinking/ThinkingBudget behavior for
 	// callers that request it without a provider-agnostic ReasoningEffort.
-	if req.Thinking || req.ReasoningEffort != "" {
+	if req.Thinking || req.ReasoningEffort.Requested() {
 		if r.GenerationConfig == nil {
 			r.GenerationConfig = &generationConfig{}
 		}
 		tc := &thinkingConfig{IncludeThoughts: true}
-		if req.ReasoningEffort != "" && isGemini3(req.Model) {
+		if req.ReasoningEffort.Requested() && isGemini3(req.Model) {
 			level := string(req.ReasoningEffort)
 			tc.ThinkingLevel = &level
 		} else {
