@@ -1,11 +1,13 @@
-# Dependabot for this repository. Mirrors the rest of the org: minor and patch
-# land in one grouped pull request per ecosystem per week, majors get their own
-# so they are easy to review and to revert.
+# Dependabot for this repository. Mirrors the rest of the org.
 #
-# There was no config here, which means alerts could accumulate with nothing
-# ever opened against them — the shape that let two hundred pile up across the
-# public repositories before anyone looked. Scheduled VERSION updates live in
-# this file; grouped SECURITY updates are a repository setting.
+# TWO groups per ecosystem, and the second one is the point: `groups` applies
+# only to version updates unless a group says `applies-to: security-updates`.
+# Without it, every security fix arrives as its own pull request — which is how
+# enabling security updates across the org opened dozens at once. Grouped, an
+# ecosystem's security fixes land in one pull request instead.
+#
+# Minor and patch land in one grouped pull request per ecosystem per week;
+# majors get their own so they are easy to review and to revert.
 
 version: 2
 updates:
@@ -22,6 +24,10 @@ updates:
         update-types:
           - minor
           - patch
+      gomod-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
     labels:
       - dependencies
 
