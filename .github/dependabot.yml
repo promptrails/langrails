@@ -1,0 +1,27 @@
+# Dependabot for this repository. Mirrors the rest of the org: minor and patch
+# land in one grouped pull request per ecosystem per week, majors get their own
+# so they are easy to review and to revert.
+#
+# There was no config here, which means alerts could accumulate with nothing
+# ever opened against them — the shape that let two hundred pile up across the
+# public repositories before anyone looked. Scheduled VERSION updates live in
+# this file; grouped SECURITY updates are a repository setting.
+
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Europe/Istanbul
+    open-pull-requests-limit: 5
+    groups:
+      gomod-minor-patch:
+        update-types:
+          - minor
+          - patch
+    labels:
+      - dependencies
+
