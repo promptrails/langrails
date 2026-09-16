@@ -28,6 +28,16 @@ updates:
         applies-to: security-updates
         patterns:
           - "*"
+    ignore:
+      # No major version pull requests. A major is a migration, not an update —
+      # it wants reading, and a queue of them is a queue nobody reads.
+      #
+      # `update-types` and not `dependency-name`: an ignore written by name
+      # silences security updates too, this form does not. If the only patched
+      # version of an advisory is a new major, Dependabot still opens it.
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
     labels:
       - dependencies
 
