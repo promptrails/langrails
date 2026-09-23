@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
 
+# Least privilege: this workflow only reads the repository. Without it the
+# jobs inherit the repository's default token scope, which may be read/write.
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest
