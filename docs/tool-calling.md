@@ -2,9 +2,67 @@
 
 Tool calling (also called function calling) lets the LLM request execution of external functions. langrails provides a unified tool calling interface across all providers and an automatic tool execution loop.
 
-## Defining Tools
+## Typed Tools
 
-Tools are defined using `langrails.ToolDefinition` with a JSON schema for parameters:
+The easiest way to define a tool is from a typed Go function. The parameter
+schema is generated from the input struct, arguments are decoded before your
+function runs, and the result is encoded as JSON (a `string` result is sent
+as is):
+
+```go
+import "github.com/promptrails/langrails/tools"
+
+type WeatherArgs struct {
+    City string `json:"city" description:"City name"`
+    Unit string `json:"unit,omitempty" jsonschema:"enum=celsius|fahrenheit"`
+    Days int    `json:"days,omitempty" jsonschema:"minimum=1,maximum=14"`
+}
+
+type Weather struct {
+    Temp      int    `json:"temp"`
+    Condition string `json:"condition"`
+}
+
+weather := tools.MustNew("get_weather", "Get current weather for a city",
+    func(ctx context.Context, in WeatherArgs) (Weather, error) {
+        return Weather{Temp: 22, Condition: "sunny"}, nil
+    })
+
+set := tools.NewSet(weather /*, more tools... */)
+
+result, err := tools.RunLoop(ctx, provider, &langrails.CompletionRequest{
+    Model:    "gpt-4o",
+    Messages: []langrails.Message{{Role: "user", Content: "Weather in Istanbul?"}},
+    Tools:    set.Definitions(),
+}, set)
+```
+
+`tools.New` returns an error instead of panicking; use it when the input type
+is not known to be valid at compile time.
+
+### Schema tags
+
+Schemas follow `encoding/json`: the `json` tag names a property, `-` skips
+it, and embedded structs are flattened. A property is **required** unless its
+json tag has `omitempty`/`omitzero` or the field is a pointer.
+
+| Tag | Example | Effect |
+|-----|---------|--------|
+| `description` | `description:"City name"` | Property description |
+| `jsonschema:"enum=…"` | `enum=celsius\|fahrenheit` | Allowed values (typed by the field kind) |
+| `jsonschema:"minimum=…,maximum=…"` | `minimum=1,maximum=14` | Numeric bounds |
+| `jsonschema:"minLength=…,maxLength=…"` | `maxLength=64` | String length |
+| `jsonschema:"minItems=…,maxItems=…"` | `minItems=1` | Array length |
+| `jsonschema:"format=…"` | `format=email` | String format |
+| `jsonschema:"required"` / `"optional"` | | Override the default |
+
+`time.Time` becomes a `date-time` string, `[]byte` a base64 string, and
+`any`/`json.RawMessage` an unconstrained value. Recursive types are rejected,
+because several providers do not accept `$ref`.
+
+## Defining Tools Manually
+
+Tools can also be defined using `langrails.ToolDefinition` with a hand-written JSON schema for parameters:
 
 ```go
 tools := []langrails.ToolDefinition{

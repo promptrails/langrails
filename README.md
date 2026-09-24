@@ -33,7 +33,7 @@ go get github.com/promptrails/langrails
 
 - **24 providers** — OpenAI, Anthropic, Gemini, DeepSeek, Groq, Fireworks, xAI, OpenRouter, Together, Mistral, Cohere, Ollama, Chutes AI, Z.AI, Moonshot (Kimi), Novita AI, DeepInfra, Friendli AI, Cerebras, SambaNova, Hyperbolic, Alibaba DashScope (Qwen), Hugging Face Router, Amazon Bedrock (Converse API)
 - **Streaming** — Channel-based, idiomatic Go
-- **Tool calling** — Unified interface + automatic tool execution loop, with `ToolChoice` control
+- **Tool calling** — Typed tools from Go functions (schema generated from structs), automatic tool execution loop, `ToolChoice` control
 - **Reasoning** — Provider-agnostic `ReasoningEffort` (minimal/low/medium/high), reasoning text + token accounting
 - **Web search & citations** — Provider-native search (`ServerTools`) with unified `Citations` in the response
 - **Prompt caching** — `CacheControl` + cached/cache-creation token reporting
