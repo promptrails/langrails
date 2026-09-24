@@ -42,7 +42,7 @@ go get github.com/promptrails/langrails
 - **Graph** — LangGraph-style stateful workflows: parallel fan-out, subgraphs, streaming, durable execution
 - **MCP** — Model Context Protocol client
 - **A2A** — Agent-to-Agent protocol client + server
-- **Structured output** — JSON schema + JSON mode across all providers
+- **Structured output** — `Generate[T]` decodes into Go types; JSON schema + JSON mode across all providers
 - **Vision / Multimodal** — Images + text in messages (all providers)
 - **Prompt templates** — Jinja-style `{{ variable }}` syntax
 - **Memory** — Conversation history with token limits

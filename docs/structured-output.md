@@ -2,7 +2,40 @@
 
 Structured output constrains the LLM to respond in a specific JSON format defined by a JSON schema. This is useful for extracting structured data, building type-safe APIs, and ensuring consistent output.
 
+## Typed Output
+
+`langrails.Generate[T]` derives the schema from a Go type, sends it as
+`OutputSchema`, and decodes the response into `T`:
+
+```go
+type Sentiment struct {
+    Label      string  `json:"label" jsonschema:"enum=positive|negative|neutral"`
+    Confidence float64 `json:"confidence" jsonschema:"minimum=0,maximum=1"`
+    Summary    string  `json:"summary" description:"One-sentence summary"`
+}
+
+s, resp, err := langrails.Generate[Sentiment](ctx, provider, &langrails.CompletionRequest{
+    Model:        "gpt-4o",
+    SystemPrompt: "Analyze the sentiment of the given text.",
+    Messages:     []langrails.Message{{Role: "user", Content: "I love this product!"}},
+})
+fmt.Println(s.Label, s.Confidence) // positive 0.95
+```
+
+Struct tags are the same ones [typed tools](tool-calling.md#schema-tags) use.
+
+- **Non-object types** — `T` can be a slice, string or number
+  (`Generate[[]Entity]`). Providers require an object at the top level, so
+  the schema is wrapped as `{"value": …}` and unwrapped after decoding.
+- **Retries** — `langrails.WithParseRetries(n)` re-asks the model up to `n`
+  times when the response does not decode, feeding the error back.
+- **Errors** — a response that never decodes returns a `*langrails.ParseError`
+  carrying the raw `Content`. The request you pass in is not modified.
+- Markdown code fences around the JSON are stripped before decoding.
+
 ## Basic Usage
+
+Use `OutputSchema` directly when the schema is dynamic or hand-written:
 
 ```go
 schema := []byte(`{
@@ -58,7 +91,11 @@ fmt.Printf("Sentiment: %s (%.0f%%)\n", result.Sentiment, result.Confidence*100)
 Each provider handles structured output differently:
 
 ### OpenAI & Compatible Providers
-Uses `response_format` with `json_schema` type and strict mode:
+Uses `response_format` with `json_schema` type and strict mode. Strict mode's
+rules are applied to every object in the schema, not only the root: each gets
+`additionalProperties: false`, and every property is listed as required, with
+properties you left optional made nullable (`"type": ["string", "null"]`) so the
+model can still omit them by returning `null`:
 ```json
 {
     "response_format": {

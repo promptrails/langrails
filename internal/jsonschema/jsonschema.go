@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -69,9 +70,24 @@ func (s *Schema) MarshalJSON() ([]byte, error) {
 		return nil, err
 	}
 
+	// Properties set without going through reflection (not in order) are
+	// written after the ordered ones, sorted.
+	order := s.order
+	if len(order) != len(props) {
+		order = append([]string(nil), s.order...)
+		var extra []string
+		for name := range props {
+			if !slices.Contains(order, name) {
+				extra = append(extra, name)
+			}
+		}
+		slices.Sort(extra)
+		order = append(order, extra...)
+	}
+
 	var b strings.Builder
 	b.WriteString(`{"properties":{`)
-	for i, name := range s.order {
+	for i, name := range order {
 		if i > 0 {
 			b.WriteByte(',')
 		}

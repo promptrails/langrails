@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 
 	"github.com/promptrails/langrails"
 	"github.com/promptrails/langrails/internal/sse"
@@ -528,17 +529,86 @@ func convertTools(tools []langrails.ToolDefinition) []tool {
 	return result
 }
 
-// enforceStrictSchema ensures the JSON schema has additionalProperties: false
-// at the top level, which is required by OpenAI's strict mode.
+// enforceStrictSchema rewrites a JSON schema to satisfy OpenAI's strict
+// mode, which applies to every object in the schema, not only the root:
+// each object gets additionalProperties: false and must list all of its
+// properties as required. A property that was optional is kept optional by
+// making it nullable instead, which is how strict mode expresses "may be
+// absent". Schemas that do not parse are returned unchanged.
 func enforceStrictSchema(schema []byte) json.RawMessage {
 	var s map[string]interface{}
 	if err := json.Unmarshal(schema, &s); err != nil {
 		return schema
 	}
-	s["additionalProperties"] = false
+	strictify(s)
 	out, err := json.Marshal(s)
 	if err != nil {
 		return schema
 	}
 	return out
+}
+
+func strictify(s map[string]interface{}) {
+	if items, ok := s["items"].(map[string]interface{}); ok {
+		strictify(items)
+	}
+	if ap, ok := s["additionalProperties"].(map[string]interface{}); ok {
+		// A map-shaped object (free-form keys) cannot be strict; leave it.
+		strictify(ap)
+		return
+	}
+	props, ok := s["properties"].(map[string]interface{})
+	if !ok && s["type"] != "object" {
+		return
+	}
+	s["additionalProperties"] = false
+
+	required := map[string]bool{}
+	if req, ok := s["required"].([]interface{}); ok {
+		for _, r := range req {
+			if name, ok := r.(string); ok {
+				required[name] = true
+			}
+		}
+	}
+	names := make([]string, 0, len(props))
+	for name := range props {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	all := make([]interface{}, 0, len(props))
+	for _, name := range names {
+		p, ok := props[name].(map[string]interface{})
+		if ok {
+			strictify(p)
+			if !required[name] {
+				makeNullable(p)
+			}
+		}
+		all = append(all, name)
+	}
+	s["required"] = all
+}
+
+// makeNullable lets a property accept null in addition to its own type.
+func makeNullable(p map[string]interface{}) {
+	switch t := p["type"].(type) {
+	case string:
+		if t != "null" {
+			p["type"] = []interface{}{t, "null"}
+		}
+	case []interface{}:
+		for _, v := range t {
+			if v == "null" {
+				return
+			}
+		}
+		p["type"] = append(t, "null")
+	default:
+		return
+	}
+	if enum, ok := p["enum"].([]interface{}); ok {
+		p["enum"] = append(enum, nil)
+	}
 }
