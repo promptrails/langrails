@@ -216,3 +216,67 @@ func TestRetryProvider_Stream_RetriesOnError(t *testing.T) {
 		t.Errorf("expected 2 calls, got %d", calls)
 	}
 }
+
+func TestRetryProvider_HonorsRetryAfter(t *testing.T) {
+	var times []time.Time
+	inner := &mockProvider{
+		completeFunc: func(_ context.Context, _ *CompletionRequest) (*CompletionResponse, error) {
+			times = append(times, time.Now())
+			if len(times) == 1 {
+				return nil, &APIError{StatusCode: 429, Provider: "test", RetryAfter: 50 * time.Millisecond}
+			}
+			return &CompletionResponse{Content: "ok"}, nil
+		},
+	}
+
+	// Base delay far larger than Retry-After: the header must win.
+	provider := WithRetry(inner, 1, WithBaseDelay(time.Hour))
+	if _, err := provider.Complete(context.Background(), &CompletionRequest{}); err != nil {
+		t.Fatal(err)
+	}
+	if gap := times[1].Sub(times[0]); gap < 50*time.Millisecond || gap > time.Second {
+		t.Errorf("waited %v, want ~50ms", gap)
+	}
+}
+
+func TestRetryProvider_GivesUpWhenRetryAfterExceedsMaxDelay(t *testing.T) {
+	calls := 0
+	inner := &mockProvider{
+		completeFunc: func(_ context.Context, _ *CompletionRequest) (*CompletionResponse, error) {
+			calls++
+			return nil, &APIError{StatusCode: 429, Provider: "test", RetryAfter: time.Hour}
+		},
+	}
+
+	provider := WithRetry(inner, 3, WithMaxDelay(time.Second))
+	start := time.Now()
+	_, err := provider.Complete(context.Background(), &CompletionRequest{})
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 429 {
+		t.Fatalf("err = %v", err)
+	}
+	if calls != 1 || time.Since(start) > 500*time.Millisecond {
+		t.Errorf("calls = %d, elapsed %v: should give up immediately", calls, time.Since(start))
+	}
+}
+
+func TestRetryProvider_BackoffJitterAndCap(t *testing.T) {
+	r := WithRetry(nil, 3, WithBaseDelay(100*time.Millisecond), WithMaxDelay(time.Second))
+	for range 50 {
+		d := r.backoff(1) // nominal 200ms
+		if d < 100*time.Millisecond || d > 200*time.Millisecond {
+			t.Fatalf("jittered delay %v outside [100ms, 200ms]", d)
+		}
+	}
+	if d := r.backoff(10); d > time.Second {
+		t.Errorf("delay %v exceeds max", d)
+	}
+
+	fixed := WithRetry(nil, 3, WithBaseDelay(100*time.Millisecond), WithoutJitter())
+	if d := fixed.backoff(2); d != 400*time.Millisecond {
+		t.Errorf("deterministic delay = %v, want 400ms", d)
+	}
+	if d := WithRetry(nil, 3, WithBaseDelay(0)).backoff(3); d != 0 {
+		t.Errorf("zero base delay = %v", d)
+	}
+}

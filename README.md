@@ -46,7 +46,7 @@ go get github.com/promptrails/langrails
 - **Vision / Multimodal** — Images + text in messages (all providers)
 - **Prompt templates** — Jinja-style `{{ variable }}` syntax
 - **Memory** — Conversation history with token limits
-- **Retry & Fallback** — Composable resilience decorators
+- **Retry & Fallback** — Composable resilience decorators; backoff with jitter, honors `Retry-After`
 - **Zero dependencies** — Only Go standard library
 
 ## Documentation

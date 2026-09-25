@@ -201,6 +201,7 @@ func (p *Provider) doRequest(ctx context.Context, url string, body []byte) (io.R
 			StatusCode: resp.StatusCode,
 			Message:    msg,
 			Provider:   p.providerName(),
+			RetryAfter: langrails.RetryAfterFromHeader(resp.Header),
 		}
 	}
 

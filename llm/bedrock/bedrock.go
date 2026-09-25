@@ -177,6 +177,7 @@ func (p *Provider) doRequest(ctx context.Context, modelID, action string, body [
 			StatusCode: resp.StatusCode,
 			Message:    msg,
 			Provider:   "bedrock",
+			RetryAfter: langrails.RetryAfterFromHeader(resp.Header),
 		}
 	}
 

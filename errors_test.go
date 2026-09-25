@@ -1,7 +1,9 @@
 package langrails
 
 import (
+	"net/http"
 	"testing"
+	"time"
 )
 
 func TestAPIError_Error(t *testing.T) {
@@ -69,5 +71,31 @@ func TestAPIError_IsRetryable(t *testing.T) {
 	}
 	if (&APIError{StatusCode: 401}).IsRetryable() {
 		t.Error("401 should not be retryable")
+	}
+}
+
+func TestRetryAfterFromHeader(t *testing.T) {
+	cases := []struct {
+		name string
+		h    http.Header
+		want time.Duration
+	}{
+		{"none", http.Header{}, 0},
+		{"seconds", http.Header{"Retry-After": {"7"}}, 7 * time.Second},
+		{"fractional", http.Header{"Retry-After": {"1.5"}}, 1500 * time.Millisecond},
+		{"ms wins", http.Header{"Retry-After": {"7"}, "Retry-After-Ms": {"250"}}, 250 * time.Millisecond},
+		{"negative", http.Header{"Retry-After": {"-3"}}, 0},
+		{"garbage", http.Header{"Retry-After": {"soon"}}, 0},
+		{"past date", http.Header{"Retry-After": {"Wed, 21 Oct 2015 07:28:00 GMT"}}, 0},
+	}
+	for _, c := range cases {
+		if got := RetryAfterFromHeader(c.h); got != c.want {
+			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
+		}
+	}
+
+	future := http.Header{"Retry-After": {time.Now().Add(30 * time.Second).UTC().Format(http.TimeFormat)}}
+	if got := RetryAfterFromHeader(future); got < 25*time.Second || got > 31*time.Second {
+		t.Errorf("http date: got %v", got)
 	}
 }

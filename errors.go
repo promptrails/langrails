@@ -1,6 +1,12 @@
 package langrails
 
-import "fmt"
+import (
+	"fmt"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+)
 
 // APIError represents an error response from an LLM provider's API.
 type APIError struct {
@@ -12,6 +18,11 @@ type APIError struct {
 
 	// Provider is the name of the provider that returned the error.
 	Provider string
+
+	// RetryAfter is how long the provider asked the caller to wait before
+	// retrying, from the Retry-After (or retry-after-ms) response header.
+	// 0 when the provider did not say. RetryProvider honors it.
+	RetryAfter time.Duration
 }
 
 // Error implements the error interface.
@@ -38,4 +49,33 @@ func (e *APIError) IsServerError() bool {
 // Rate limit errors and server errors are considered retryable.
 func (e *APIError) IsRetryable() bool {
 	return e.IsRateLimitError() || e.IsServerError()
+}
+
+// RetryAfterFromHeader reads how long a response asks the client to wait:
+// the non-standard retry-after-ms header (OpenAI, Azure) when present, else
+// Retry-After as delta-seconds or an HTTP date. Returns 0 when neither is
+// set or parseable. Custom Provider implementations can use it to fill
+// APIError.RetryAfter.
+func RetryAfterFromHeader(h http.Header) time.Duration {
+	if ms := strings.TrimSpace(h.Get("retry-after-ms")); ms != "" {
+		if n, err := strconv.ParseFloat(ms, 64); err == nil && n > 0 {
+			return time.Duration(n * float64(time.Millisecond))
+		}
+	}
+	v := strings.TrimSpace(h.Get("Retry-After"))
+	if v == "" {
+		return 0
+	}
+	if n, err := strconv.ParseFloat(v, 64); err == nil {
+		if n <= 0 {
+			return 0
+		}
+		return time.Duration(n * float64(time.Second))
+	}
+	if t, err := http.ParseTime(v); err == nil {
+		if d := time.Until(t); d > 0 {
+			return d
+		}
+	}
+	return 0
 }

@@ -8,7 +8,7 @@ Automatically retry on transient errors (rate limits, server errors):
 
 ```go
 provider := langrails.WithRetry(openai.New("sk-..."), 3)
-// 3 retries with exponential backoff: 1s, 2s, 4s
+// 3 retries with exponential backoff: ~1s, ~2s, ~4s
 ```
 
 ### Custom Backoff
@@ -16,9 +16,25 @@ provider := langrails.WithRetry(openai.New("sk-..."), 3)
 ```go
 provider := langrails.WithRetry(openai.New("sk-..."), 5,
     langrails.WithBaseDelay(500 * time.Millisecond),
+    langrails.WithMaxDelay(10 * time.Second), // cap one wait (default: 1 minute)
 )
-// 500ms, 1s, 2s, 4s, 8s
+// ~500ms, ~1s, ~2s, ~4s, ~8s
 ```
+
+Each delay is **jittered** — randomized between half and all of its nominal
+value — so many clients failing at the same moment don't retry in lockstep.
+Use `langrails.WithoutJitter()` for exact delays.
+
+### Retry-After
+
+When a provider says how long to wait (`Retry-After` or `retry-after-ms`
+header on a 429/5xx), that wait replaces the backoff. It is exposed as
+`APIError.RetryAfter`. If the provider asks for longer than the max delay,
+the error is returned right away instead of retrying early into another
+rejection.
+
+Writing your own provider? Fill it with
+`langrails.RetryAfterFromHeader(resp.Header)`.
 
 ### What Gets Retried
 

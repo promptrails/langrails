@@ -814,3 +814,22 @@ func TestReasoningNoneIsSentNotDropped(t *testing.T) {
 		t.Fatalf(`body["reasoning"] = %v, want absent on a style that cannot express none`, body["reasoning"])
 	}
 }
+
+func TestProvider_Complete_RetryAfter(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Retry-After", "3")
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer server.Close()
+
+	provider := New(Config{Name: "test", BaseURL: server.URL, APIKey: "k"})
+	_, err := provider.Complete(context.Background(), &langrails.CompletionRequest{Model: "m"})
+
+	apiErr, ok := err.(*langrails.APIError)
+	if !ok {
+		t.Fatalf("expected APIError, got %T", err)
+	}
+	if apiErr.RetryAfter != 3*time.Second {
+		t.Errorf("RetryAfter = %v, want 3s", apiErr.RetryAfter)
+	}
+}

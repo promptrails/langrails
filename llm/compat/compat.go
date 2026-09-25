@@ -144,6 +144,7 @@ func (p *Provider) doRequest(ctx context.Context, body []byte) (io.ReadCloser, e
 			StatusCode: resp.StatusCode,
 			Message:    msg,
 			Provider:   p.config.Name,
+			RetryAfter: langrails.RetryAfterFromHeader(resp.Header),
 		}
 	}
 
