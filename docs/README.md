@@ -22,7 +22,7 @@ resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
 |---------|-------------|
 | **25 Providers** | OpenAI, Anthropic, Gemini, DeepSeek, Groq, Fireworks, xAI, OpenRouter, Together, Mistral, Cohere, Perplexity, Ollama, Chutes AI, Z.AI, Moonshot (Kimi), Novita AI, DeepInfra, Friendli AI, Cerebras, SambaNova, Hyperbolic, Alibaba DashScope (Qwen), Hugging Face Router, Amazon Bedrock |
 | **Streaming** | Channel-based, idiomatic Go |
-| **Tool Calling** | Unified interface + automatic tool execution loop, with `ToolChoice` control |
+| **Tool Calling** | Typed tools from Go functions, automatic tool execution loop, `ToolChoice` control |
 | **Reasoning** | Provider-agnostic `ReasoningEffort` (minimal/low/medium/high), reasoning text + token accounting |
 | **Web Search & Citations** | Provider-native search (`ServerTools`) with unified `Citations` |
 | **Prompt Caching** | `CacheControl` + cached/cache-creation token reporting |
@@ -31,11 +31,11 @@ resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
 | **Graph** | LangGraph-style stateful workflows with conditional routing |
 | **MCP** | Model Context Protocol client for external tools |
 | **A2A** | Agent-to-Agent protocol client + server |
-| **Structured Output** | JSON schema + JSON mode across all providers |
+| **Structured Output** | `Generate[T]` decodes into Go types; JSON schema + JSON mode across all providers |
 | **Vision / Multimodal** | Images + text in messages |
 | **Prompt Templates** | Jinja-style `{{ variable }}` syntax |
 | **Memory** | Conversation history with token limits |
-| **Retry & Fallback** | Composable resilience decorators |
+| **Retry, Fallback & Rate Limiting** | Composable resilience decorators; jittered backoff, `Retry-After`, token-bucket limiter |
 | **Zero Dependencies** | Only Go standard library |
 
 ## Install
@@ -68,7 +68,7 @@ Requires Go 1.26.3+ (see `go.mod`).
 | [Durable Execution](durable-execution.md) | Checkpointing, resume, time travel |
 | [MCP](mcp.md) | Model Context Protocol integration |
 | [A2A](a2a.md) | Agent-to-Agent protocol client + server |
-| [Retry & Fallback](retry-fallback.md) | Resilience patterns |
+| [Retry, Fallback & Rate Limiting](retry-fallback.md) | Retries, fallbacks, rate limiting |
 
 ## Quick Links
 

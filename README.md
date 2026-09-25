@@ -46,7 +46,7 @@ go get github.com/promptrails/langrails
 - **Vision / Multimodal** — Images + text in messages (all providers)
 - **Prompt templates** — Jinja-style `{{ variable }}` syntax
 - **Memory** — Conversation history with token limits
-- **Retry & Fallback** — Composable resilience decorators; backoff with jitter, honors `Retry-After`
+- **Retry, Fallback & Rate Limiting** — Composable resilience decorators; backoff with jitter, honors `Retry-After`, token-bucket rate limiter
 - **Zero dependencies** — Only Go standard library
 
 ## Documentation
@@ -61,17 +61,17 @@ go get github.com/promptrails/langrails
 | [Web Search & Citations](docs/web-search.md) | Provider-native search + citations |
 | [Prompt Caching](docs/caching.md) | Cache control + cached-token reporting |
 | [Vision / Multimodal](docs/vision.md) | Images + text in messages |
-| [Structured Output](docs/structured-output.md) | JSON schema + JSON mode |
+| [Structured Output](docs/structured-output.md) | Typed output, JSON schema + JSON mode |
 | [Prompt Templates](docs/prompt-templates.md) | Jinja-style variable substitution |
 | [Memory](docs/memory.md) | Conversation history management |
-| [Tool Calling](docs/tool-calling.md) | Function calling + automatic tool loop |
+| [Tool Calling](docs/tool-calling.md) | Typed tools, function calling + automatic tool loop |
 | [Agents (Middleware)](docs/agents.md) | Middleware agent loop + built-in middleware |
 | [Chain](docs/chain.md) | Sequential prompt pipelines |
 | [Graph](docs/graph.md) | Stateful workflows, fan-out, subgraphs, streaming |
 | [Durable Execution](docs/durable-execution.md) | Checkpointing, resume, time travel |
 | [MCP](docs/mcp.md) | Model Context Protocol integration |
 | [A2A](docs/a2a.md) | Agent-to-Agent protocol client + server |
-| [Retry & Fallback](docs/retry-fallback.md) | Resilience patterns |
+| [Retry, Fallback & Rate Limiting](docs/retry-fallback.md) | Retries, fallbacks, rate limiting |
 
 Full docs with search: [promptrails.github.io/langrails](https://promptrails.github.io/langrails)
 

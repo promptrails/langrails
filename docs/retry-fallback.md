@@ -1,4 +1,4 @@
-# Retry & Fallback
+# Retry, Fallback & Rate Limiting
 
 langrails provides composable decorators for building resilient LLM applications.
 
@@ -61,6 +61,30 @@ resp, err := provider.Complete(ctx, req)
 
 For streaming, only the initial connection is retried. Mid-stream failures are not retried (the stream would need to restart from the beginning).
 
+## Rate Limiting
+
+Cap how fast requests leave the client — useful for staying under a
+provider's per-minute quota instead of hitting 429s:
+
+```go
+// At most 5 requests per second, allowing bursts of up to 10.
+provider := langrails.WithRateLimit(openai.New("sk-..."), 5, 10)
+
+// Slower than one per second works too: 30 requests per minute.
+provider := langrails.WithRateLimit(openai.New("sk-..."), 0.5, 1)
+```
+
+It is a token bucket: callers over the limit block until a slot frees up or
+their context ends (the slot is then given back). Share one wrapped provider
+across goroutines to limit them together. `Wait(ctx)` is exported if you need
+to reserve a slot for something other than a completion.
+
+Put the limiter **inside** the retry so that retries are limited too:
+
+```go
+provider := langrails.WithRetry(langrails.WithRateLimit(p, 5, 10), 3)
+```
+
 ## Fallback
 
 Automatically switch to a backup provider on failure:
@@ -102,4 +126,4 @@ OpenAI → Anthropic → Groq priority chain.
 
 ## Interface Compliance
 
-Both `RetryProvider` and `FallbackProvider` implement `langrails.Provider`, so they work everywhere a provider is expected — including chains, graphs, and tool loops.
+`RetryProvider`, `FallbackProvider` and `RateLimitProvider` implement `langrails.Provider`, so they work everywhere a provider is expected — including chains, graphs, and tool loops.
