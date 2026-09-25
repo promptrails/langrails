@@ -25,7 +25,7 @@ resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
 | **Tool Calling** | Typed tools from Go functions, automatic tool execution loop, `ToolChoice` control |
 | **Reasoning** | Provider-agnostic `ReasoningEffort` (minimal/low/medium/high), reasoning text + token accounting |
 | **Web Search & Citations** | Provider-native search (`ServerTools`) with unified `Citations` |
-| **Prompt Caching** | `CacheControl` + cached/cache-creation token reporting |
+| **Caching** | Provider prompt caching (`CacheControl` + cached-token reporting) and a client-side response cache |
 | **Agents** | Middleware-driven tool-calling loop (summarization, PII redaction, human-in-the-loop) |
 | **Chain** | Sequential multi-step prompt pipelines |
 | **Graph** | LangGraph-style stateful workflows with conditional routing |
@@ -56,7 +56,7 @@ Requires Go 1.26.3+ (see `go.mod`).
 | [Streaming](streaming.md) | Real-time token streaming |
 | [Reasoning](reasoning.md) | Reasoning effort, thinking output, tokens |
 | [Web Search & Citations](web-search.md) | Provider-native search + citations |
-| [Prompt Caching](caching.md) | Cache control + cached-token reporting |
+| [Caching](caching.md) | Prompt caching, cached-token reporting, response cache |
 | [Vision / Multimodal](vision.md) | Images + text in messages |
 | [Structured Output](structured-output.md) | JSON schema + JSON mode |
 | [Prompt Templates](prompt-templates.md) | Jinja-style variable substitution |

@@ -7,7 +7,7 @@
   - [Streaming](streaming.md)
   - [Reasoning](reasoning.md)
   - [Web Search & Citations](web-search.md)
-  - [Prompt Caching](caching.md)
+  - [Caching](caching.md)
   - [Vision / Multimodal](vision.md)
   - [Structured Output](structured-output.md)
   - [Prompt Templates](prompt-templates.md)

@@ -36,7 +36,7 @@ go get github.com/promptrails/langrails
 - **Tool calling** — Typed tools from Go functions (schema generated from structs), automatic tool execution loop, `ToolChoice` control
 - **Reasoning** — Provider-agnostic `ReasoningEffort` (minimal/low/medium/high), reasoning text + token accounting
 - **Web search & citations** — Provider-native search (`ServerTools`) with unified `Citations` in the response
-- **Prompt caching** — `CacheControl` + cached/cache-creation token reporting
+- **Caching** — Provider prompt caching (`CacheControl` + cached-token reporting) and a client-side response cache
 - **Agents** — Middleware-driven tool-calling loop (summarization, PII redaction, human-in-the-loop)
 - **Chain** — Sequential multi-step prompt pipelines
 - **Graph** — LangGraph-style stateful workflows: parallel fan-out, subgraphs, streaming, durable execution
@@ -59,7 +59,7 @@ go get github.com/promptrails/langrails
 | [Streaming](docs/streaming.md) | Real-time token streaming |
 | [Reasoning](docs/reasoning.md) | Reasoning effort, thinking output, tokens |
 | [Web Search & Citations](docs/web-search.md) | Provider-native search + citations |
-| [Prompt Caching](docs/caching.md) | Cache control + cached-token reporting |
+| [Caching](docs/caching.md) | Prompt caching, cached-token reporting, response cache |
 | [Vision / Multimodal](docs/vision.md) | Images + text in messages |
 | [Structured Output](docs/structured-output.md) | Typed output, JSON schema + JSON mode |
 | [Prompt Templates](docs/prompt-templates.md) | Jinja-style variable substitution |
