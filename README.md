@@ -43,7 +43,7 @@ go get github.com/promptrails/langrails
 - **MCP** — Model Context Protocol client
 - **A2A** — Agent-to-Agent protocol client + server
 - **Structured output** — `Generate[T]` decodes into Go types; JSON schema + JSON mode across all providers
-- **Vision / Multimodal** — Images + text in messages (all providers)
+- **Vision / Multimodal** — Images, audio and documents (PDF) in messages
 - **Prompt templates** — Jinja-style `{{ variable }}` syntax
 - **Memory** — Conversation history with token limits
 - **Observability** — Provider, agent (tool-call) and graph (node) hooks; tracing-ready via context
@@ -61,7 +61,7 @@ go get github.com/promptrails/langrails
 | [Reasoning](docs/reasoning.md) | Reasoning effort, thinking output, tokens |
 | [Web Search & Citations](docs/web-search.md) | Provider-native search + citations |
 | [Caching](docs/caching.md) | Prompt caching, cached-token reporting, response cache |
-| [Vision / Multimodal](docs/vision.md) | Images + text in messages |
+| [Vision / Multimodal](docs/vision.md) | Images, audio and documents in messages |
 | [Structured Output](docs/structured-output.md) | Typed output, JSON schema + JSON mode |
 | [Prompt Templates](docs/prompt-templates.md) | Jinja-style variable substitution |
 | [Memory](docs/memory.md) | Conversation history management |

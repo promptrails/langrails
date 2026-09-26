@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/promptrails/langrails"
 	"github.com/promptrails/langrails/internal/mediautil"
@@ -232,6 +233,9 @@ func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<-
 }
 
 func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream bool) ([]byte, error) {
+	if err := mediautil.CheckParts("anthropic", req, mediaSupport); err != nil {
+		return nil, err
+	}
 	maxTokens := defaultMaxTokens
 	if req.MaxTokens != nil {
 		maxTokens = *req.MaxTokens
@@ -473,11 +477,32 @@ func convertContentParts(m langrails.Message) []contentBlock {
 					Type: "url", URL: url,
 				}})
 			}
+		case langrails.ContentDocument:
+			blocks = append(blocks, documentBlock(part))
 		default:
 			blocks = append(blocks, contentBlock{Type: "text", Text: part.Text})
 		}
 	}
 	return blocks
+}
+
+// mediaSupport: Anthropic takes documents (PDF, plain text) inline or by
+// URL, and has no audio input.
+var mediaSupport = mediautil.Support{DocumentData: true, DocumentURL: true}
+
+// documentBlock builds a document block. Plain-text documents use the
+// "text" source, which takes the text itself rather than base64.
+func documentBlock(p langrails.ContentPart) contentBlock {
+	b := contentBlock{Type: "document", Title: p.Filename}
+	switch {
+	case p.Data == "":
+		b.Source = &imageSource{Type: "url", URL: p.URL}
+	case strings.HasPrefix(p.MediaType, "text/"):
+		b.Source = &imageSource{Type: "text", MediaType: "text/plain", Data: mediautil.DecodeText(p.Data)}
+	default:
+		b.Source = &imageSource{Type: "base64", MediaType: p.MediaType, Data: p.Data}
+	}
+	return b
 }
 
 func convertTools(tools []langrails.ToolDefinition) []tool {

@@ -37,6 +37,7 @@ type message struct {
 type contentBlock struct {
 	Text       string      `json:"text,omitempty"`
 	Image      *imageBlock `json:"image,omitempty"`
+	Document   *docBlock   `json:"document,omitempty"`
 	ToolUse    *toolUse    `json:"toolUse,omitempty"`
 	ToolResult *toolResult `json:"toolResult,omitempty"`
 	CachePoint *cachePoint `json:"cachePoint,omitempty"`
@@ -48,6 +49,12 @@ type cachePoint struct {
 
 type imageBlock struct {
 	Format string           `json:"format"` // png, jpeg, gif, webp
+	Source imageSourceBytes `json:"source"`
+}
+
+type docBlock struct {
+	Format string           `json:"format"` // pdf, csv, doc, docx, xls, xlsx, html, txt, md
+	Name   string           `json:"name"`
 	Source imageSourceBytes `json:"source"`
 }
 

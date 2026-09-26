@@ -49,9 +49,21 @@ type message struct {
 }
 
 type contentPart struct {
-	Type     string    `json:"type"`
-	Text     string    `json:"text,omitempty"`
-	ImageURL *imageURL `json:"image_url,omitempty"`
+	Type       string      `json:"type"`
+	Text       string      `json:"text,omitempty"`
+	ImageURL   *imageURL   `json:"image_url,omitempty"`
+	InputAudio *inputAudio `json:"input_audio,omitempty"`
+	File       *fileInput  `json:"file,omitempty"`
+}
+
+type inputAudio struct {
+	Data   string `json:"data"`   // base64
+	Format string `json:"format"` // "wav" or "mp3"
+}
+
+type fileInput struct {
+	Filename string `json:"filename,omitempty"`
+	FileData string `json:"file_data"` // data URI
 }
 
 type imageURL struct {

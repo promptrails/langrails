@@ -10,6 +10,7 @@ import (
 	"sort"
 
 	"github.com/promptrails/langrails"
+	"github.com/promptrails/langrails/internal/mediautil"
 	"github.com/promptrails/langrails/internal/sse"
 )
 
@@ -259,6 +260,9 @@ func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<-
 }
 
 func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream bool) ([]byte, error) {
+	if err := mediautil.CheckParts(p.config.Name, req, mediaSupport); err != nil {
+		return nil, err
+	}
 	oaiReq := request{
 		Model:    req.Model,
 		Messages: convertMessages(req),
@@ -457,6 +461,24 @@ func hasWebSearch(tools []langrails.ServerTool) bool {
 	return false
 }
 
+// audioFormats maps accepted audio media types to the input_audio format.
+var audioFormats = map[string]string{
+	"audio/wav":   "wav",
+	"audio/x-wav": "wav",
+	"audio/wave":  "wav",
+	"audio/mpeg":  "mp3",
+	"audio/mp3":   "mp3",
+}
+
+// mediaSupport is what the OpenAI chat-completions format can carry: audio
+// as input_audio (wav/mp3), documents as inline file data. Whether a given
+// compat provider's models accept them is up to that provider.
+var mediaSupport = mediautil.Support{
+	Audio:        true,
+	AudioFormats: []string{"audio/wav", "audio/x-wav", "audio/wave", "audio/mpeg", "audio/mp3"},
+	DocumentData: true,
+}
+
 func convertMessages(req *langrails.CompletionRequest) []message {
 	var msgs []message
 
@@ -483,6 +505,19 @@ func convertMessages(req *langrails.CompletionRequest) []message {
 					parts = append(parts, contentPart{
 						Type:     "image_url",
 						ImageURL: &imageURL{URL: p.ImageURL},
+					})
+				case langrails.ContentAudio:
+					parts = append(parts, contentPart{
+						Type:       "input_audio",
+						InputAudio: &inputAudio{Data: p.Data, Format: audioFormats[p.MediaType]},
+					})
+				case langrails.ContentDocument:
+					parts = append(parts, contentPart{
+						Type: "file",
+						File: &fileInput{
+							Filename: mediautil.Filename(p.Filename, len(parts)+1),
+							FileData: mediautil.DataURI(p.MediaType, p.Data),
+						},
 					})
 				}
 			}

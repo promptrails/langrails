@@ -46,12 +46,13 @@ type contentBlock struct {
 	ToolUseID    string              `json:"tool_use_id,omitempty"`
 	Content      string              `json:"content,omitempty"`
 	Source       *imageSource        `json:"source,omitempty"`
+	Title        string              `json:"title,omitempty"` // document blocks
 	Citations    []anthropicCitation `json:"citations,omitempty"`
 	CacheControl *cacheControl       `json:"cache_control,omitempty"`
 }
 
 type imageSource struct {
-	Type      string `json:"type"`                 // "base64" or "url"
+	Type      string `json:"type"`                 // "base64", "url" or "text"
 	MediaType string `json:"media_type,omitempty"` // for base64
 	Data      string `json:"data,omitempty"`       // base64 payload
 	URL       string `json:"url,omitempty"`        // for url

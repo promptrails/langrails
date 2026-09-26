@@ -301,7 +301,14 @@ func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<-
 	ch <- langrails.StreamEvent{Type: langrails.EventDone}
 }
 
+// mediaSupport: Gemini takes audio and documents as inline data, or by
+// file URI (File API or Cloud Storage).
+var mediaSupport = mediautil.Support{Audio: true, DocumentData: true, DocumentURL: true}
+
 func (p *Provider) buildRequestBody(req *langrails.CompletionRequest) ([]byte, error) {
+	if err := mediautil.CheckParts(p.providerName(), req, mediaSupport); err != nil {
+		return nil, err
+	}
 	r := request{
 		Contents: convertMessages(req),
 	}
@@ -626,6 +633,12 @@ func convertContentParts(m langrails.Message) []part {
 				parts = append(parts, part{InlineData: &inlineData{MIMEType: mt, Data: data}})
 			} else {
 				parts = append(parts, part{FileData: &fileData{FileURI: url}})
+			}
+		case langrails.ContentAudio, langrails.ContentDocument:
+			if cp.Data != "" {
+				parts = append(parts, part{InlineData: &inlineData{MIMEType: cp.MediaType, Data: cp.Data}})
+			} else {
+				parts = append(parts, part{FileData: &fileData{MIMEType: cp.MediaType, FileURI: cp.URL}})
 			}
 		default:
 			if cp.Text == "" {

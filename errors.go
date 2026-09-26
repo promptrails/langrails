@@ -1,12 +1,19 @@
 package langrails
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 )
+
+// ErrUnsupportedContent is wrapped by the error a provider returns when a
+// message contains a content part it cannot send (for example audio to a
+// provider without audio input). The check runs before any request is
+// made. Test for it with errors.Is.
+var ErrUnsupportedContent = errors.New("unsupported content")
 
 // APIError represents an error response from an LLM provider's API.
 type APIError struct {

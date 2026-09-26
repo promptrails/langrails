@@ -26,10 +26,25 @@ type Message struct {
 	ToolCalls []ToolCall
 }
 
+// Content part types.
+const (
+	ContentText     = "text"
+	ContentImage    = "image"
+	ContentAudio    = "audio"
+	ContentDocument = "document"
+)
+
 // ContentPart represents a part of a multimodal message.
-// A message can contain multiple parts, mixing text and images.
+// A message can contain multiple parts, mixing text, images, audio and
+// documents. Use the constructors (TextPart, ImageURLPart, AudioPart,
+// DocumentPart, ...) rather than filling the fields by hand.
+//
+// Not every provider accepts every type; a provider rejects a request with
+// a part it cannot send with an error wrapping ErrUnsupportedContent,
+// before anything is sent.
 type ContentPart struct {
-	// Type is the content type: "text" or "image".
+	// Type is the content type: ContentText, ContentImage, ContentAudio or
+	// ContentDocument.
 	Type string
 
 	// Text is the text content. Only used when Type is "text".
@@ -38,6 +53,20 @@ type ContentPart struct {
 	// ImageURL is the URL of the image. Only used when Type is "image".
 	// Can be an HTTP(S) URL or a base64 data URI (data:image/png;base64,...).
 	ImageURL string
+
+	// MediaType is the MIME type of an audio or document part, e.g.
+	// "audio/wav", "audio/mpeg", "application/pdf", "text/plain".
+	MediaType string
+
+	// Data is the base64-encoded content of an audio or document part.
+	Data string
+
+	// URL references a document by URL instead of inline Data.
+	URL string
+
+	// Filename optionally names a document part. Some providers show it to
+	// the model or require one; a name is generated when it is empty.
+	Filename string
 }
 
 // TextPart creates a text content part.
@@ -54,6 +83,25 @@ func ImageURLPart(url string) ContentPart {
 // mediaType should be "image/png", "image/jpeg", etc.
 func ImageBase64Part(data string, mediaType string) ContentPart {
 	return ContentPart{Type: "image", ImageURL: "data:" + mediaType + ";base64," + data}
+}
+
+// AudioPart creates an audio input part from base64-encoded data.
+// mediaType is e.g. "audio/wav" or "audio/mpeg".
+func AudioPart(data string, mediaType string) ContentPart {
+	return ContentPart{Type: ContentAudio, Data: data, MediaType: mediaType}
+}
+
+// DocumentPart creates a document input part (for example a PDF) from
+// base64-encoded data. mediaType is e.g. "application/pdf"; filename may be
+// empty.
+func DocumentPart(data, mediaType, filename string) ContentPart {
+	return ContentPart{Type: ContentDocument, Data: data, MediaType: mediaType, Filename: filename}
+}
+
+// DocumentURLPart creates a document input part the provider fetches from a
+// URL. mediaType may be empty when the provider can infer it.
+func DocumentURLPart(url, mediaType string) ContentPart {
+	return ContentPart{Type: ContentDocument, URL: url, MediaType: mediaType}
 }
 
 // ToolDefinition describes a tool/function that the model can call.

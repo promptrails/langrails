@@ -9,8 +9,10 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/promptrails/langrails"
 	"github.com/promptrails/langrails/internal/awssig"
@@ -278,7 +280,61 @@ func readStream(ctx context.Context, body io.ReadCloser, ch chan<- langrails.Str
 	ch <- langrails.StreamEvent{Type: langrails.EventDone}
 }
 
+// docFormats maps the media types Converse accepts to its document format.
+var docFormats = map[string]string{
+	"application/pdf":    "pdf",
+	"text/csv":           "csv",
+	"application/msword": "doc",
+	"application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+	"application/vnd.ms-excel": "xls",
+	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+	"text/html":     "html",
+	"text/plain":    "txt",
+	"text/markdown": "md",
+}
+
+// docName makes a Converse document name: letters, digits, single spaces,
+// hyphens, parentheses and square brackets only.
+func docName(name string, n int) string {
+	var b strings.Builder
+	space := false
+	for _, r := range strings.TrimSuffix(name, path.Ext(name)) {
+		ok := unicode.IsLetter(r) || unicode.IsDigit(r) || strings.ContainsRune("-()[]", r)
+		if ok {
+			b.WriteRune(r)
+			space = false
+		} else if !space && b.Len() > 0 {
+			b.WriteByte(' ')
+			space = true
+		}
+	}
+	if s := strings.TrimSpace(b.String()); s != "" {
+		return s
+	}
+	return fmt.Sprintf("document-%d", n)
+}
+
+// checkParts rejects what Converse cannot carry: audio, documents by URL,
+// and document types outside docFormats.
+func checkParts(req *langrails.CompletionRequest) error {
+	if err := mediautil.CheckParts("bedrock", req, mediautil.Support{DocumentData: true}); err != nil {
+		return err
+	}
+	for i, m := range req.Messages {
+		for j, p := range m.ContentParts {
+			if p.Type == langrails.ContentDocument && docFormats[p.MediaType] == "" {
+				return fmt.Errorf("bedrock: message %d part %d: document type %q: %w",
+					i, j, p.MediaType, langrails.ErrUnsupportedContent)
+			}
+		}
+	}
+	return nil
+}
+
 func buildRequestBody(req *langrails.CompletionRequest) ([]byte, error) {
+	if err := checkParts(req); err != nil {
+		return nil, err
+	}
 	r := request{
 		Messages: convertMessages(req),
 		System:   buildSystem(req),
@@ -470,6 +526,12 @@ func convertContentParts(m langrails.Message) []contentBlock {
 					Source: imageSourceBytes{Bytes: data},
 				}})
 			}
+		case langrails.ContentDocument:
+			blocks = append(blocks, contentBlock{Document: &docBlock{
+				Format: docFormats[cp.MediaType],
+				Name:   docName(cp.Filename, len(blocks)+1),
+				Source: imageSourceBytes{Bytes: cp.Data},
+			}})
 		default:
 			blocks = append(blocks, contentBlock{Text: cp.Text})
 		}

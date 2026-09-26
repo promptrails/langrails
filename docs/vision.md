@@ -1,6 +1,8 @@
 # Vision / Multimodal
 
-LangRails supports sending images alongside text in messages. This enables vision capabilities like image analysis, OCR, chart reading, and visual Q&A.
+LangRails supports sending images, audio and documents (PDF and more) alongside
+text in messages. This enables image analysis, OCR, chart reading, transcription,
+audio Q&A and document understanding.
 
 ## Sending Images
 
@@ -69,7 +71,64 @@ langrails.Message{
 
 When `ContentParts` is set, it takes precedence over `Content`.
 
+## Audio
+
+```go
+audio := base64.StdEncoding.EncodeToString(wavBytes)
+
+resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
+    Model: "gpt-4o-audio-preview",
+    Messages: []langrails.Message{{
+        Role: "user",
+        ContentParts: []langrails.ContentPart{
+            langrails.TextPart("Transcribe and summarize this call."),
+            langrails.AudioPart(audio, "audio/wav"),
+        },
+    }},
+})
+```
+
+OpenAI-compatible providers accept WAV (`audio/wav`) and MP3 (`audio/mpeg`);
+Gemini accepts any audio type it supports (`audio/ogg`, `audio/flac`, ...).
+
+## Documents (PDF)
+
+```go
+pdf := base64.StdEncoding.EncodeToString(pdfBytes)
+
+langrails.DocumentPart(pdf, "application/pdf", "q3-report.pdf") // inline
+langrails.DocumentURLPart("https://example.com/q3.pdf", "application/pdf") // by URL
+```
+
+The filename is optional; providers that require one (Bedrock) get a
+generated name when it is empty. On Anthropic a `text/plain` document is sent
+as a text document; on Bedrock the media type picks the Converse format (PDF,
+CSV, DOC/DOCX, XLS/XLSX, HTML, TXT, Markdown).
+
+## Unsupported content
+
+A provider that cannot carry a part — audio to Anthropic, a document URL to
+OpenAI — returns an error wrapping `langrails.ErrUnsupportedContent` **before
+sending anything**, rather than silently dropping the part:
+
+```go
+_, err := provider.Complete(ctx, req)
+if errors.Is(err, langrails.ErrUnsupportedContent) {
+    // fall back: extract text locally, pick another provider, ...
+}
+```
+
+The check is about the wire format. Whether a particular *model* accepts audio
+or PDFs is still up to the provider.
+
 ## Provider Support
+
+| Provider | Audio | Documents (inline) | Documents (URL) |
+|----------|-------|--------------------|-----------------|
+| OpenAI / compat | WAV, MP3 (`input_audio`) | Yes (`file`) | No |
+| Anthropic | No | PDF, plain text | Yes |
+| Gemini | Yes (`inlineData`) | Yes (`inlineData`) | File API / GCS URIs |
+| Bedrock | No | PDF, CSV, DOC(X), XLS(X), HTML, TXT, MD | No |
 
 | Provider | Vision Support |
 |----------|---------------|

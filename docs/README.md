@@ -32,7 +32,7 @@ resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
 | **MCP** | Model Context Protocol client for external tools |
 | **A2A** | Agent-to-Agent protocol client + server |
 | **Structured Output** | `Generate[T]` decodes into Go types; JSON schema + JSON mode across all providers |
-| **Vision / Multimodal** | Images + text in messages |
+| **Vision / Multimodal** | Images, audio and documents (PDF) in messages |
 | **Prompt Templates** | Jinja-style `{{ variable }}` syntax |
 | **Memory** | Conversation history with token limits |
 | **Observability** | Provider, agent (tool-call) and graph (node) hooks; tracing-ready via context |
@@ -58,7 +58,7 @@ Requires Go 1.26.3+ (see `go.mod`).
 | [Reasoning](reasoning.md) | Reasoning effort, thinking output, tokens |
 | [Web Search & Citations](web-search.md) | Provider-native search + citations |
 | [Caching](caching.md) | Prompt caching, cached-token reporting, response cache |
-| [Vision / Multimodal](vision.md) | Images + text in messages |
+| [Vision / Multimodal](vision.md) | Images, audio and documents in messages |
 | [Structured Output](structured-output.md) | JSON schema + JSON mode |
 | [Prompt Templates](prompt-templates.md) | Jinja-style variable substitution |
 | [Memory](memory.md) | Conversation history management |
