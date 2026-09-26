@@ -46,6 +46,7 @@ go get github.com/promptrails/langrails
 - **Vision / Multimodal** — Images + text in messages (all providers)
 - **Prompt templates** — Jinja-style `{{ variable }}` syntax
 - **Memory** — Conversation history with token limits
+- **Observability** — Provider, agent (tool-call) and graph (node) hooks; tracing-ready via context
 - **Retry, Fallback & Rate Limiting** — Composable resilience decorators; backoff with jitter, honors `Retry-After`, token-bucket rate limiter
 - **Zero dependencies** — Only Go standard library
 
@@ -72,6 +73,7 @@ go get github.com/promptrails/langrails
 | [MCP](docs/mcp.md) | Model Context Protocol integration |
 | [A2A](docs/a2a.md) | Agent-to-Agent protocol client + server |
 | [Retry, Fallback & Rate Limiting](docs/retry-fallback.md) | Retries, fallbacks, rate limiting |
+| [Observability](docs/observability.md) | Provider, agent and graph hooks; tracing |
 
 Full docs with search: [promptrails.github.io/langrails](https://promptrails.github.io/langrails)
 

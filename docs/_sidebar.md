@@ -13,6 +13,7 @@
   - [Prompt Templates](prompt-templates.md)
   - [Memory](memory.md)
   - [Retry, Fallback & Rate Limiting](retry-fallback.md)
+  - [Observability](observability.md)
 
 - **Agent Toolkit**
   - [Tool Calling](tool-calling.md)

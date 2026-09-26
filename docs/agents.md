@@ -78,6 +78,22 @@ a := agent.New(provider,
 )
 ```
 
+### Wrapping tool calls
+
+A middleware may also implement the optional `agent.ToolWrapper` interface to
+wrap every tool execution — the tool-side counterpart of `WrapModelCall`, with
+the same ordering (first registered outermost):
+
+```go
+type ToolWrapper interface {
+    WrapToolCall(next agent.ToolFunc) agent.ToolFunc
+}
+```
+
+Use it to log, time, retry or block tool calls. An error returned from the
+chain is not fatal: it is sent to the model as the tool result, like an
+executor error. See [Observability](observability.md) for a timing example.
+
 ### Stopping the loop early
 
 Call `state.Stop()` in `AfterModel` to end the loop after the current

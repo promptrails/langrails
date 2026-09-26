@@ -107,6 +107,7 @@ func (a *Agent) RunMessages(ctx context.Context, messages []langrails.Message) (
 	}
 
 	result := &Result{}
+	runTool := a.toolChain()
 
 	for i := 0; i < a.maxIterations; i++ {
 		state := &State{Request: req, Iteration: i + 1}
@@ -154,7 +155,7 @@ func (a *Agent) RunMessages(ctx context.Context, messages []langrails.Message) (
 			ToolCalls: resp.ToolCalls,
 		})
 		for _, tc := range resp.ToolCalls {
-			out, execErr := a.executor.Execute(ctx, tc.Name, tc.Arguments)
+			out, execErr := runTool(ctx, tc)
 			if execErr != nil {
 				out = fmt.Sprintf(`{"error": %q}`, execErr.Error())
 			}
@@ -174,6 +175,20 @@ func (a *Agent) baseCall() CallFunc {
 	return func(ctx context.Context, req *langrails.CompletionRequest) (*langrails.CompletionResponse, error) {
 		return a.provider.Complete(ctx, req)
 	}
+}
+
+// toolChain composes the executor with every middleware that implements
+// ToolWrapper, first registered outermost.
+func (a *Agent) toolChain() ToolFunc {
+	run := ToolFunc(func(ctx context.Context, call langrails.ToolCall) (string, error) {
+		return a.executor.Execute(ctx, call.Name, call.Arguments)
+	})
+	for j := len(a.middlewares) - 1; j >= 0; j-- {
+		if w, ok := a.middlewares[j].(ToolWrapper); ok {
+			run = w.WrapToolCall(run)
+		}
+	}
+	return run
 }
 
 // cloneMessages deep-copies a message slice so middleware (for example PII

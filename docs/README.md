@@ -35,6 +35,7 @@ resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
 | **Vision / Multimodal** | Images + text in messages |
 | **Prompt Templates** | Jinja-style `{{ variable }}` syntax |
 | **Memory** | Conversation history with token limits |
+| **Observability** | Provider, agent (tool-call) and graph (node) hooks; tracing-ready via context |
 | **Retry, Fallback & Rate Limiting** | Composable resilience decorators; jittered backoff, `Retry-After`, token-bucket limiter |
 | **Zero Dependencies** | Only Go standard library |
 
@@ -69,6 +70,7 @@ Requires Go 1.26.3+ (see `go.mod`).
 | [MCP](mcp.md) | Model Context Protocol integration |
 | [A2A](a2a.md) | Agent-to-Agent protocol client + server |
 | [Retry, Fallback & Rate Limiting](retry-fallback.md) | Retries, fallbacks, rate limiting |
+| [Observability](observability.md) | Provider, agent and graph hooks; tracing |
 
 ## Quick Links
 

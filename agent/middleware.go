@@ -51,6 +51,20 @@ type Middleware interface {
 	WrapModelCall(next CallFunc) CallFunc
 }
 
+// ToolFunc executes a single tool call and returns its result.
+type ToolFunc func(ctx context.Context, call langrails.ToolCall) (string, error)
+
+// ToolWrapper is an optional extension of Middleware. A middleware that
+// also implements it wraps every tool execution, the same way
+// WrapModelCall wraps model calls: the first registered wrapper is
+// outermost. Use it to log, time, retry, or short-circuit tool calls.
+//
+// An error returned from the chain is not fatal: the agent sends it to the
+// model as the tool result, as it does for executor errors.
+type ToolWrapper interface {
+	WrapToolCall(next ToolFunc) ToolFunc
+}
+
 // BaseMiddleware provides no-op implementations of every Middleware hook.
 // Embed it in a custom middleware and override only the hooks you need.
 type BaseMiddleware struct{}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 )
 
 // END is a special node name that signals the graph should stop.
@@ -82,6 +83,7 @@ type runConfig[S any] struct {
 	maxSteps     int
 	checkpointer Checkpointer[S]
 	threadID     string
+	hooks        Hooks[S]
 }
 
 func (g *Graph[S]) buildConfig(opts ...Option[S]) *runConfig[S] {
@@ -122,6 +124,44 @@ func WithThreadID[S any](id string) Option[S] {
 	return func(c *runConfig[S]) {
 		c.threadID = id
 	}
+}
+
+// Hooks observe node execution for logging, metrics and tracing. Both
+// fields are optional. Fan-out branches run concurrently, so hooks may be
+// called from several goroutines at once and must be safe for that.
+type Hooks[S any] struct {
+	// OnNodeStart runs before a node executes, with the state going in.
+	// The context it returns is passed to the node and to OnNodeEnd, so a
+	// tracer can start a span here. Return ctx unchanged when there is
+	// nothing to attach.
+	OnNodeStart func(ctx context.Context, node string, state S) context.Context
+
+	// OnNodeEnd runs after a node executes, with its output state (the zero
+	// value when it failed), its error, and how long it took.
+	OnNodeEnd func(ctx context.Context, node string, state S, err error, elapsed time.Duration)
+}
+
+// WithHooks reports every node execution in the run, including fan-out
+// branches, to hooks.
+func WithHooks[S any](hooks Hooks[S]) Option[S] {
+	return func(c *runConfig[S]) {
+		c.hooks = hooks
+	}
+}
+
+// callNode runs one node, reporting it to the run's hooks.
+func (c *runConfig[S]) callNode(ctx context.Context, name string, fn NodeFunc[S], state S) (S, error) {
+	if c.hooks.OnNodeStart != nil {
+		if hc := c.hooks.OnNodeStart(ctx, name, state); hc != nil {
+			ctx = hc
+		}
+	}
+	start := time.Now()
+	out, err := fn(ctx, state)
+	if c.hooks.OnNodeEnd != nil {
+		c.hooks.OnNodeEnd(ctx, name, out, err, time.Since(start))
+	}
+	return out, err
 }
 
 // AddNode registers a node with the given name and function.
@@ -314,7 +354,7 @@ func (g *Graph[S]) run(ctx context.Context, cfg *runConfig[S], state S, currentN
 			return nil, fmt.Errorf("graph: unknown node %q", currentNode)
 		}
 
-		newState, err := fn(ctx, state)
+		newState, err := cfg.callNode(ctx, currentNode, fn, state)
 		if err != nil {
 			return nil, fmt.Errorf("graph: node %q failed: %w", currentNode, err)
 		}
@@ -340,7 +380,7 @@ func (g *Graph[S]) run(ctx context.Context, cfg *runConfig[S], state S, currentN
 			if step+len(sends) > cfg.maxSteps {
 				return nil, fmt.Errorf("graph: exceeded maximum steps (%d)", cfg.maxSteps)
 			}
-			results, err := g.runBranches(ctx, sends)
+			results, err := g.runBranches(ctx, cfg, sends)
 			if err != nil {
 				return nil, err
 			}
@@ -422,7 +462,7 @@ func (g *Graph[S]) planFanOut(ctx context.Context, fo fanOut[S], state S) ([]Sen
 // runBranches runs every branch concurrently and collects their results in
 // branch order. If any branch fails, the remaining branches are cancelled
 // and the first error is returned.
-func (g *Graph[S]) runBranches(ctx context.Context, sends []Send[S]) ([]S, error) {
+func (g *Graph[S]) runBranches(ctx context.Context, cfg *runConfig[S], sends []Send[S]) ([]S, error) {
 	if len(sends) == 0 {
 		return nil, nil
 	}
@@ -435,16 +475,16 @@ func (g *Graph[S]) runBranches(ctx context.Context, sends []Send[S]) ([]S, error
 	var wg sync.WaitGroup
 	for i, snd := range sends {
 		wg.Add(1)
-		go func(i int, fn NodeFunc[S], st S) {
+		go func(i int, name string, fn NodeFunc[S], st S) {
 			defer wg.Done()
-			out, e := fn(ctx, st)
+			out, e := cfg.callNode(ctx, name, fn, st)
 			if e != nil {
 				errs[i] = e
 				cancel()
 				return
 			}
 			results[i] = out
-		}(i, g.nodes[snd.Node], snd.State)
+		}(i, snd.Node, g.nodes[snd.Node], snd.State)
 	}
 	wg.Wait()
 
