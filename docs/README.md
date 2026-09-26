@@ -29,7 +29,7 @@ resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
 | **Agents** | Middleware-driven tool-calling loop (summarization, PII redaction, human-in-the-loop) |
 | **Chain** | Sequential multi-step prompt pipelines |
 | **Graph** | LangGraph-style stateful workflows with conditional routing |
-| **MCP** | Model Context Protocol client for external tools |
+| **MCP** | Model Context Protocol client: HTTP and stdio transports, tools, resources, prompts |
 | **A2A** | Agent-to-Agent protocol client + server |
 | **Structured Output** | `Generate[T]` decodes into Go types; JSON schema + JSON mode across all providers |
 | **Vision / Multimodal** | Images, audio and documents (PDF) in messages |
@@ -67,7 +67,7 @@ Requires Go 1.26.3+ (see `go.mod`).
 | [Chain](chain.md) | Sequential prompt pipelines |
 | [Graph](graph.md) | Stateful workflows, fan-out, subgraphs, streaming |
 | [Durable Execution](durable-execution.md) | Checkpointing, resume, time travel |
-| [MCP](mcp.md) | Model Context Protocol integration |
+| [MCP](mcp.md) | MCP client: HTTP/stdio, tools, resources, prompts |
 | [A2A](a2a.md) | Agent-to-Agent protocol client + server |
 | [Retry, Fallback & Rate Limiting](retry-fallback.md) | Retries, fallbacks, rate limiting |
 | [Observability](observability.md) | Provider, agent and graph hooks; tracing |

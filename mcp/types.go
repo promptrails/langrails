@@ -6,14 +6,22 @@ import "encoding/json"
 
 type jsonRPCRequest struct {
 	JSONRPC string      `json:"jsonrpc"`
-	ID      int         `json:"id"`
+	ID      int64       `json:"id"`
+	Method  string      `json:"method"`
+	Params  interface{} `json:"params,omitempty"`
+}
+
+// jsonRPCNotification is a request without an ID; the server sends no
+// response.
+type jsonRPCNotification struct {
+	JSONRPC string      `json:"jsonrpc"`
 	Method  string      `json:"method"`
 	Params  interface{} `json:"params,omitempty"`
 }
 
 type jsonRPCResponse struct {
 	JSONRPC string          `json:"jsonrpc"`
-	ID      int             `json:"id"`
+	ID      int64           `json:"id"`
 	Result  json.RawMessage `json:"result,omitempty"`
 	Error   *jsonRPCError   `json:"error,omitempty"`
 }
@@ -32,7 +40,8 @@ type mcpTool struct {
 }
 
 type toolListResult struct {
-	Tools []mcpTool `json:"tools"`
+	Tools      []mcpTool `json:"tools"`
+	NextCursor string    `json:"nextCursor,omitempty"`
 }
 
 type toolCallResult struct {

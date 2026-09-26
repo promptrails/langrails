@@ -40,7 +40,7 @@ go get github.com/promptrails/langrails
 - **Agents** — Middleware-driven tool-calling loop (summarization, PII redaction, human-in-the-loop)
 - **Chain** — Sequential multi-step prompt pipelines
 - **Graph** — LangGraph-style stateful workflows: parallel fan-out, subgraphs, streaming, durable execution
-- **MCP** — Model Context Protocol client
+- **MCP** — Model Context Protocol client: HTTP and stdio transports, tools, resources, prompts
 - **A2A** — Agent-to-Agent protocol client + server
 - **Structured output** — `Generate[T]` decodes into Go types; JSON schema + JSON mode across all providers
 - **Vision / Multimodal** — Images, audio and documents (PDF) in messages
@@ -70,7 +70,7 @@ go get github.com/promptrails/langrails
 | [Chain](docs/chain.md) | Sequential prompt pipelines |
 | [Graph](docs/graph.md) | Stateful workflows, fan-out, subgraphs, streaming |
 | [Durable Execution](docs/durable-execution.md) | Checkpointing, resume, time travel |
-| [MCP](docs/mcp.md) | Model Context Protocol integration |
+| [MCP](docs/mcp.md) | MCP client: HTTP/stdio, tools, resources, prompts |
 | [A2A](docs/a2a.md) | Agent-to-Agent protocol client + server |
 | [Retry, Fallback & Rate Limiting](docs/retry-fallback.md) | Retries, fallbacks, rate limiting |
 | [Observability](docs/observability.md) | Provider, agent and graph hooks; tracing |

@@ -1,6 +1,6 @@
 # MCP (Model Context Protocol)
 
-The `mcp` package provides a client for the [Model Context Protocol](https://modelcontextprotocol.io/), enabling your LLM applications to connect to MCP servers and use their tools.
+The `mcp` package provides a client for the [Model Context Protocol](https://modelcontextprotocol.io/), enabling your LLM applications to connect to MCP servers and use their tools, resources and prompts — over HTTP or stdio.
 
 ## What is MCP?
 
@@ -20,7 +20,40 @@ if err != nil {
 defer client.Close()
 ```
 
-The client automatically initializes the MCP session and discovers available tools on creation.
+The client automatically initializes the MCP session and discovers available tools on creation (following pagination). If the server assigns a streamable-HTTP session (`Mcp-Session-Id`), it is sent on every later request.
+
+## Local Servers (stdio)
+
+Most published MCP servers run as a local process that speaks JSON-RPC over
+stdin/stdout. `NewStdioClient` starts the process and connects to it:
+
+```go
+client, err := mcp.NewStdioClient("npx",
+    []string{"-y", "@modelcontextprotocol/server-filesystem", "/tmp"},
+    mcp.WithEnv("DEBUG=1"),      // added to the current environment
+    mcp.WithDir("/srv/project"), // working directory
+    mcp.WithStderr(os.Stderr),   // server logs (discarded by default)
+)
+if err != nil {
+    log.Fatal(err)
+}
+defer client.Close() // closes stdin, waits briefly, then kills the process
+```
+
+Everything else — `ToolDefinitions`, `Execute`, resources, prompts — works the
+same as with an HTTP client. Calls may be made concurrently; cancelling a call's
+context sends `notifications/cancelled` to the server.
+
+This pairs with [api2mcp](https://github.com/promptrails/api2mcp), which turns
+an existing HTTP API into an MCP server: serve it over stdio and point
+`NewStdioClient` at the binary.
+
+```go
+client, err := mcp.NewStdioClient("api2mcp", []string{"serve", "--config", "api2mcp.yaml"})
+```
+
+`WithSetupTimeout` bounds the initial handshake (default 30s) so a server that
+never answers does not hang.
 
 ## Authentication
 
@@ -123,6 +156,37 @@ result, err := tools.RunLoop(ctx, provider, &langrails.CompletionRequest{
 }, &combinedExecutor{mcp: mcpClient, local: tools.NewMap(localFuncs)})
 ```
 
+## Resources
+
+Servers can expose context — files, rows, API responses — as resources:
+
+```go
+resources, err := client.ListResources(ctx)
+for _, r := range resources {
+    fmt.Println(r.URI, r.Name, r.MIMEType)
+}
+
+contents, err := client.ReadResource(ctx, "file:///project/README.md")
+fmt.Println(contents[0].Text) // or contents[0].Blob (base64) for binary
+```
+
+## Prompts
+
+Server prompt templates render straight into langrails messages:
+
+```go
+prompts, _ := client.ListPrompts(ctx)
+
+msgs, err := client.GetPrompt(ctx, "code_review", map[string]string{"code": src})
+resp, err := provider.Complete(ctx, &langrails.CompletionRequest{
+    Model:    "gpt-4o",
+    Messages: msgs,
+})
+```
+
+Text content becomes `Content`, image content an image part, and embedded text
+resources are inlined as text.
+
 ## Refreshing Tools
 
 If the MCP server's tool list changes:
@@ -154,6 +218,15 @@ if err != nil {
 
 result, err := client.Execute(ctx, "tool_name", args)
 if err != nil {
-    // Tool execution failed (network error, RPC error, etc.)
+    // Tool execution failed: network error, RPC error, or a result the
+    // server marked isError (the error carries the server's message).
 }
+```
+
+`Execute` returns all text blocks of the result joined with newlines.
+
+## Scope
+
+langrails is an MCP **client**. To expose an HTTP API as an MCP server, see
+[api2mcp](https://github.com/promptrails/api2mcp).
 ```
