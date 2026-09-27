@@ -33,6 +33,53 @@ fmt.Println(result.Iterations, result.TotalUsage.TotalTokens)
 
 Use `RunMessages` instead of `Run` to pass a full conversation history.
 
+## Streaming
+
+`Stream` runs the same loop but reports progress as it happens — ideal for
+chat UIs that show tokens and tool activity live:
+
+```go
+for ev := range a.Stream(ctx, "What's the weather in Istanbul?") {
+    switch ev.Type {
+    case agent.EventReasoning:
+        fmt.Print(ev.Reasoning)
+    case agent.EventContent:
+        fmt.Print(ev.Content)
+    case agent.EventToolCall:
+        fmt.Printf("\n[calling %s(%s)]\n", ev.ToolCall.Name, ev.ToolCall.Arguments)
+    case agent.EventToolResult:
+        fmt.Printf("[result: %s]\n", ev.Content)
+    case agent.EventDone:
+        fmt.Println("\ntokens:", ev.Result.TotalUsage.TotalTokens)
+    case agent.EventError:
+        log.Fatal(ev.Error)
+    }
+}
+```
+
+| Event | Fields |
+|-------|--------|
+| `EventContent` | `Content` — a text chunk |
+| `EventReasoning` | `Reasoning` — a reasoning chunk |
+| `EventToolCall` | `ToolCall` — about to execute |
+| `EventToolResult` | `ToolCall`, `Content` (result), `ToolError` |
+| `EventDone` | `Result` — same as `Run` returns; always the last event |
+| `EventError` | `Error` — always the last event |
+
+Every event carries its loop `Iteration`. `StreamMessages` takes a full
+history, like `RunMessages`.
+
+Model calls use the provider's `Stream` method and still pass through all
+middleware, which sees the assembled response. Two consequences:
+
+- Tokens reach you **before** `AfterModel` runs, so output-rewriting middleware
+  (e.g. `WithRedactOutput`) cannot retract text already streamed; the final
+  `Result` carries the rewritten response.
+- If a middleware answers without calling the provider (a cache, a canned
+  reply), its content arrives as a single `EventContent`.
+
+Cancel the context to stop early; the channel is always closed.
+
 ## Middleware
 
 A middleware implements three hooks. Embed `agent.BaseMiddleware` and override

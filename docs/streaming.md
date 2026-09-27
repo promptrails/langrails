@@ -58,7 +58,31 @@ The `Usage` field may be present on any event type (typically the last content o
 
 ## Collecting Full Response
 
-If you want the full response but still want to process chunks:
+`langrails.CollectStream` reads a stream to the end and returns the assembled
+`CompletionResponse` (content, reasoning, tool calls, citations, usage), or the
+stream's error:
+
+```go
+events, _ := provider.Stream(ctx, req)
+resp, err := langrails.CollectStream(events)
+```
+
+To display chunks *and* keep the full response, feed each event to a
+`langrails.StreamAccumulator`:
+
+```go
+var acc langrails.StreamAccumulator
+for event := range events {
+    acc.Add(event)
+    if event.Type == langrails.EventContent {
+        fmt.Print(event.Content)
+    }
+}
+if err := acc.Err(); err != nil { /* ... */ }
+resp := acc.Response()
+```
+
+Or by hand:
 
 ```go
 var fullContent strings.Builder
@@ -135,6 +159,23 @@ for event := range events {
 
 The channel is always closed when the stream ends, so `range` over the channel is safe and will not block forever.
 
+## Agent Streaming
+
+`agent.Agent.Stream` runs the whole tool-calling loop while streaming: model
+text and reasoning token by token, each tool call and its result, then a final
+`EventDone` carrying the `Result`. See [Agents](agents.md#streaming).
+
+```go
+for ev := range a.Stream(ctx, "What's the weather in Istanbul?") {
+    switch ev.Type {
+    case agent.EventContent:
+        fmt.Print(ev.Content)
+    case agent.EventToolCall:
+        fmt.Printf("\n[calling %s]\n", ev.ToolCall.Name)
+    }
+}
+```
+
 ## Graph Streaming
 
 The `graph` package can stream a workflow's progress: `Stream` runs the graph
@@ -161,5 +202,5 @@ if err := <-errc; err != nil {
 - Checkpointing (`WithCheckpointer`/`WithThreadID`) applies to `Stream` exactly as it does to `Run`.
 
 For token-level streaming from within a node, have the node call the provider's
-`Stream` method directly and forward chunks over your own channel; graph
-`Stream` operates at node granularity (LangGraph's `updates` mode).
+`Stream` method (or `agent.Stream`) directly and forward chunks over your own
+channel; graph `Stream` operates at node granularity (LangGraph's `updates` mode).

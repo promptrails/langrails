@@ -2,7 +2,6 @@ package langrails
 
 import (
 	"context"
-	"strings"
 	"time"
 )
 
@@ -77,13 +76,13 @@ func (h *HooksProvider) Stream(ctx context.Context, req *CompletionRequest) (<-c
 	out := make(chan StreamEvent)
 	go func() {
 		defer close(out)
-		var acc streamAccumulator
+		var acc StreamAccumulator
 		var streamErr error
 		for ev := range in {
 			if h.hooks.OnStreamEvent != nil {
 				h.hooks.OnStreamEvent(ctx, req, ev)
 			}
-			acc.add(ev)
+			acc.Add(ev)
 			if ev.Type == EventError && ev.Error != nil {
 				streamErr = ev.Error
 			}
@@ -101,7 +100,7 @@ func (h *HooksProvider) Stream(ctx context.Context, req *CompletionRequest) (<-c
 		if streamErr != nil {
 			h.fail(ctx, req, streamErr, time.Since(start))
 		} else if h.hooks.OnResponse != nil {
-			h.hooks.OnResponse(ctx, req, acc.response(), time.Since(start))
+			h.hooks.OnResponse(ctx, req, acc.Response(), time.Since(start))
 		}
 	}()
 	return out, nil
@@ -120,38 +119,4 @@ func (h *HooksProvider) fail(ctx context.Context, req *CompletionRequest, err er
 	if h.hooks.OnError != nil {
 		h.hooks.OnError(ctx, req, err, elapsed)
 	}
-}
-
-// streamAccumulator assembles a CompletionResponse from stream events.
-type streamAccumulator struct {
-	content   strings.Builder
-	reasoning strings.Builder
-	resp      CompletionResponse
-}
-
-func (a *streamAccumulator) add(ev StreamEvent) {
-	switch ev.Type {
-	case EventContent:
-		a.content.WriteString(ev.Content)
-	case EventReasoning:
-		a.reasoning.WriteString(ev.Reasoning)
-	case EventToolCall:
-		if ev.ToolCall != nil {
-			a.resp.ToolCalls = append(a.resp.ToolCalls, *ev.ToolCall)
-		}
-	case EventCitation:
-		if ev.Citation != nil {
-			a.resp.Citations = append(a.resp.Citations, *ev.Citation)
-		}
-	}
-	if ev.Usage != nil {
-		a.resp.Usage = *ev.Usage
-	}
-}
-
-func (a *streamAccumulator) response() *CompletionResponse {
-	r := a.resp
-	r.Content = a.content.String()
-	r.Thinking = a.reasoning.String()
-	return &r
 }

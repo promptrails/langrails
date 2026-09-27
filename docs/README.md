@@ -26,7 +26,7 @@ resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
 | **Reasoning** | Provider-agnostic `ReasoningEffort` (minimal/low/medium/high), reasoning text + token accounting |
 | **Web Search & Citations** | Provider-native search (`ServerTools`) with unified `Citations` |
 | **Caching** | Provider prompt caching (`CacheControl` + cached-token reporting) and a client-side response cache |
-| **Agents** | Middleware-driven tool-calling loop (summarization, PII redaction, human-in-the-loop) |
+| **Agents** | Middleware-driven tool-calling loop with token streaming (summarization, PII redaction, human-in-the-loop) |
 | **Chain** | Sequential multi-step prompt pipelines |
 | **Graph** | LangGraph-style stateful workflows with conditional routing |
 | **MCP** | Model Context Protocol client: HTTP and stdio transports, tools, resources, prompts |

@@ -60,3 +60,24 @@ func TestStreamEvent_PayloadsByType(t *testing.T) {
 		t.Errorf("Error = %v, want %v", errEvent.Error, streamErr)
 	}
 }
+
+func TestCollectStream(t *testing.T) {
+	ch := make(chan StreamEvent, 4)
+	ch <- StreamEvent{Type: EventContent, Content: "a"}
+	ch <- StreamEvent{Type: EventToolCall, ToolCall: &ToolCall{ID: "1"}}
+	ch <- StreamEvent{Usage: &TokenUsage{TotalTokens: 3}}
+	ch <- StreamEvent{Type: EventDone}
+	close(ch)
+	resp, err := CollectStream(ch)
+	if err != nil || resp.Content != "a" || resp.FinishReason != "tool_calls" || resp.Usage.TotalTokens != 3 {
+		t.Errorf("resp = %+v, err = %v", resp, err)
+	}
+
+	ch = make(chan StreamEvent, 2)
+	ch <- StreamEvent{Type: EventError, Error: errors.New("first")}
+	ch <- StreamEvent{Type: EventError, Error: errors.New("second")}
+	close(ch)
+	if _, err := CollectStream(ch); err == nil || err.Error() != "first" {
+		t.Errorf("err = %v", err)
+	}
+}

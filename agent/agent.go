@@ -95,6 +95,13 @@ func (a *Agent) Run(ctx context.Context, input string) (*Result, error) {
 // (including content parts and tool calls), so middleware such as PII
 // redaction cannot mutate the caller's original history.
 func (a *Agent) RunMessages(ctx context.Context, messages []langrails.Message) (*Result, error) {
+	return a.run(ctx, messages, nil)
+}
+
+// run is the agent loop shared by RunMessages and StreamMessages. When emit
+// is nil the model is called with Complete; otherwise with Stream, and
+// progress is reported through emit as it happens.
+func (a *Agent) run(ctx context.Context, messages []langrails.Message, emit func(Event)) (*Result, error) {
 	if a.model == "" {
 		return nil, fmt.Errorf("agent: no model set (use WithModel)")
 	}
@@ -110,29 +117,40 @@ func (a *Agent) RunMessages(ctx context.Context, messages []langrails.Message) (
 	runTool := a.toolChain()
 
 	for i := 0; i < a.maxIterations; i++ {
-		state := &State{Request: req, Iteration: i + 1}
+		iteration := i + 1
+		state := &State{Request: req, Iteration: iteration}
 
 		for _, m := range a.middlewares {
 			if err := m.BeforeModel(ctx, state); err != nil {
-				return nil, fmt.Errorf("agent: before_model (iteration %d): %w", i+1, err)
+				return nil, fmt.Errorf("agent: before_model (iteration %d): %w", iteration, err)
 			}
 		}
 
+		streamed := false
 		call := a.baseCall()
+		if emit != nil {
+			call = a.streamCall(iteration, emit, &streamed)
+		}
 		for j := len(a.middlewares) - 1; j >= 0; j-- {
 			call = a.middlewares[j].WrapModelCall(call)
 		}
 
 		resp, err := call(ctx, req)
 		if err != nil {
-			return nil, fmt.Errorf("agent: iteration %d: %w", i+1, err)
+			return nil, fmt.Errorf("agent: iteration %d: %w", iteration, err)
 		}
 		state.Response = resp
 
 		for j := len(a.middlewares) - 1; j >= 0; j-- {
 			if err := a.middlewares[j].AfterModel(ctx, state); err != nil {
-				return nil, fmt.Errorf("agent: after_model (iteration %d): %w", i+1, err)
+				return nil, fmt.Errorf("agent: after_model (iteration %d): %w", iteration, err)
 			}
+		}
+
+		// A middleware answered without reaching the provider (a cache, a
+		// canned reply): deliver its content in one piece.
+		if emit != nil && !streamed && resp.Content != "" {
+			emit(Event{Type: EventContent, Iteration: iteration, Content: resp.Content})
 		}
 
 		result.Iterations++
@@ -155,7 +173,15 @@ func (a *Agent) RunMessages(ctx context.Context, messages []langrails.Message) (
 			ToolCalls: resp.ToolCalls,
 		})
 		for _, tc := range resp.ToolCalls {
+			if emit != nil {
+				call := tc
+				emit(Event{Type: EventToolCall, Iteration: iteration, ToolCall: &call})
+			}
 			out, execErr := runTool(ctx, tc)
+			if emit != nil {
+				call := tc
+				emit(Event{Type: EventToolResult, Iteration: iteration, ToolCall: &call, Content: out, ToolError: execErr})
+			}
 			if execErr != nil {
 				out = fmt.Sprintf(`{"error": %q}`, execErr.Error())
 			}
@@ -174,6 +200,34 @@ func (a *Agent) RunMessages(ctx context.Context, messages []langrails.Message) (
 func (a *Agent) baseCall() CallFunc {
 	return func(ctx context.Context, req *langrails.CompletionRequest) (*langrails.CompletionResponse, error) {
 		return a.provider.Complete(ctx, req)
+	}
+}
+
+// streamCall is the innermost CallFunc for streaming runs: it streams from
+// the provider, forwards text and reasoning chunks through emit as they
+// arrive, and returns the assembled response to the middleware chain.
+func (a *Agent) streamCall(iteration int, emit func(Event), streamed *bool) CallFunc {
+	return func(ctx context.Context, req *langrails.CompletionRequest) (*langrails.CompletionResponse, error) {
+		events, err := a.provider.Stream(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		var acc langrails.StreamAccumulator
+		for ev := range events {
+			acc.Add(ev)
+			switch ev.Type {
+			case langrails.EventContent:
+				*streamed = true
+				emit(Event{Type: EventContent, Iteration: iteration, Content: ev.Content})
+			case langrails.EventReasoning:
+				*streamed = true
+				emit(Event{Type: EventReasoning, Iteration: iteration, Reasoning: ev.Reasoning})
+			}
+		}
+		if err := acc.Err(); err != nil {
+			return nil, err
+		}
+		return acc.Response(), nil
 	}
 }
 
