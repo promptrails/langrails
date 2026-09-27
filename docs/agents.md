@@ -349,8 +349,8 @@ By default every tool requires approval; `WithInterruptOn` narrows that to a
 named subset. The approver may **block** while waiting for a human and may
 return an **error** to abort the run.
 
-**Durable pause and resume.** To pause across a process restart — e.g. a
-multi-day approval — run the agent inside a graph node and enable
-[durable execution](durable-execution.md). Have the approver return an error to
-stop the run; the graph checkpoint captures the state, and `Resume` continues
-once the human responds.
+**Durable pause and resume.** `HumanInLoop` blocks while it waits. To pause
+across a process restart — e.g. a multi-day approval — put the decision in a
+graph node with `graph.Await` and enable a checkpointer: the run stops, is saved,
+and continues when you `Resume` it with the answer. See
+[Interrupts](durable-execution.md#interrupts-human-in-the-loop).

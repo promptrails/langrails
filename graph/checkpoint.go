@@ -24,6 +24,10 @@ type Checkpoint[S any] struct {
 
 	// Done is true when the run reached END.
 	Done bool
+
+	// Interruption is set when the run paused at Node waiting for input.
+	// Resume with WithResumeValue to answer it.
+	Interruption *Interruption
 }
 
 // Checkpointer persists and restores graph checkpoints, keyed by thread

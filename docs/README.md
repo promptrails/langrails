@@ -28,7 +28,7 @@ resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
 | **Caching** | Provider prompt caching (`CacheControl` + cached-token reporting) and a client-side response cache |
 | **Agents** | Middleware-driven tool-calling loop with token streaming; built-in summarization, context editing, tool selection, call limits, model fallback, tool retry, PII redaction, human-in-the-loop |
 | **Chain** | Sequential multi-step prompt pipelines |
-| **Graph** | LangGraph-style stateful workflows with conditional routing |
+| **Graph** | LangGraph-style stateful workflows: parallel fan-out, subgraphs, streaming, durable execution, human-in-the-loop interrupts |
 | **MCP** | Model Context Protocol client: HTTP and stdio transports, tools, resources, prompts |
 | **A2A** | Agent-to-Agent protocol client + server |
 | **Structured Output** | `Generate[T]` decodes into Go types; JSON schema + JSON mode across all providers |
@@ -66,7 +66,7 @@ Requires Go 1.26.3+ (see `go.mod`).
 | [Agents (Middleware)](agents.md) | Middleware agent loop + built-in middleware |
 | [Chain](chain.md) | Sequential prompt pipelines |
 | [Graph](graph.md) | Stateful workflows, fan-out, subgraphs, streaming |
-| [Durable Execution](durable-execution.md) | Checkpointing, resume, time travel |
+| [Durable Execution](durable-execution.md) | Checkpointing, resume, interrupts, time travel |
 | [MCP](mcp.md) | MCP client: HTTP/stdio, tools, resources, prompts |
 | [A2A](a2a.md) | Agent-to-Agent protocol client + server |
 | [Retry, Fallback & Rate Limiting](retry-fallback.md) | Retries, fallbacks, rate limiting |

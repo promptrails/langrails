@@ -39,7 +39,7 @@ go get github.com/promptrails/langrails
 - **Caching** — Provider prompt caching (`CacheControl` + cached-token reporting) and a client-side response cache
 - **Agents** — Middleware-driven tool-calling loop with token streaming; built-in summarization, context editing, tool selection, call limits, model fallback, tool retry, PII redaction, human-in-the-loop
 - **Chain** — Sequential multi-step prompt pipelines
-- **Graph** — LangGraph-style stateful workflows: parallel fan-out, subgraphs, streaming, durable execution
+- **Graph** — LangGraph-style stateful workflows: parallel fan-out, subgraphs, streaming, durable execution, human-in-the-loop interrupts
 - **MCP** — Model Context Protocol client: HTTP and stdio transports, tools, resources, prompts
 - **A2A** — Agent-to-Agent protocol client + server
 - **Structured output** — `Generate[T]` decodes into Go types; JSON schema + JSON mode across all providers
@@ -69,7 +69,7 @@ go get github.com/promptrails/langrails
 | [Agents (Middleware)](docs/agents.md) | Middleware agent loop + built-in middleware |
 | [Chain](docs/chain.md) | Sequential prompt pipelines |
 | [Graph](docs/graph.md) | Stateful workflows, fan-out, subgraphs, streaming |
-| [Durable Execution](docs/durable-execution.md) | Checkpointing, resume, time travel |
+| [Durable Execution](docs/durable-execution.md) | Checkpointing, resume, interrupts, time travel |
 | [MCP](docs/mcp.md) | MCP client: HTTP/stdio, tools, resources, prompts |
 | [A2A](docs/a2a.md) | Agent-to-Agent protocol client + server |
 | [Retry, Fallback & Rate Limiting](docs/retry-fallback.md) | Retries, fallbacks, rate limiting |

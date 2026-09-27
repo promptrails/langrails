@@ -59,6 +59,67 @@ result, err := g.Resume(ctx,
 Resuming a run that already reached `END` replays no nodes — it returns the
 persisted final state.
 
+## Interrupts (human-in-the-loop)
+
+A node can **pause the run** until someone answers — approve a deployment,
+review a draft, pick an option — and the run continues later, even in another
+process, days after. This is LangGraph's `interrupt()` / resume pattern.
+
+Call `graph.Await[T](ctx, payload)` in the node and return its error:
+
+```go
+g.AddNode("approve", func(ctx context.Context, s State) (State, error) {
+    ok, err := graph.Await[bool](ctx, "Deploy "+s.Version+" to production?")
+    if err != nil {
+        return s, err // pauses the run
+    }
+    s.Approved = ok
+    return s, nil
+})
+```
+
+The first time, `Await` returns an interrupt. The graph saves a checkpoint and
+`Run` returns **without an error**, with `RunResult.Interruption` set:
+
+```go
+opts := []graph.Option[State]{
+    graph.WithCheckpointer[State](cp),
+    graph.WithThreadID[State]("deploy-42"),
+}
+
+res, err := g.Run(ctx, State{Version: "v2"}, opts...)
+if res.Interruption != nil {
+    // res.Interruption.Node    == "approve"
+    // res.Interruption.Payload == "Deploy v2 to production?"
+    notifyReviewer(res.Interruption.Payload)
+    return
+}
+```
+
+When the answer arrives, resume with it. The paused node runs again from the
+top, and this time `Await` returns the value:
+
+```go
+res, err := g.Resume(ctx, append(opts, graph.WithResumeValue[State](true))...)
+// res.State.Approved == true; the run continued to END
+```
+
+Rules of thumb:
+
+- **A checkpointer is required.** Without one the interrupt is returned as an
+  error wrapping `*graph.InterruptError`.
+- **The paused node re-runs on resume**, so code before `Await` runs twice.
+  Keep side effects after it. Nodes that completed earlier do not re-run.
+- **Resuming without `WithResumeValue`** simply pauses again at the same node.
+- **The value's type must match** `Await[T]`; otherwise the node fails.
+- **Subgraphs** (`AsNode`) may interrupt: the parent pauses at the subgraph
+  node, and on resume the subgraph starts again from its entry point, with the
+  value delivered to the `Await` that asked.
+- **Fan-out branches** cannot interrupt; the run fails with an error.
+- The pending interruption is stored in `Checkpoint.Interruption`, and `Stream`
+  ends with a `StepEvent` carrying it. If your checkpointer serializes state,
+  make the payload serializable too.
+
 ## Time travel
 
 `History` returns every checkpoint for a thread in save order, so you can

@@ -345,3 +345,23 @@ g.AddConditionalEdge("reviewer", func(s State) string {
     return "coder" // Send back for revision
 })
 ```
+
+## Human-in-the-Loop
+
+A node can pause the run until someone answers, with `graph.Await`. The run is
+checkpointed and continues later via `Resume` with the answer:
+
+```go
+g.AddNode("review", func(ctx context.Context, s State) (State, error) {
+    edited, err := graph.Await[string](ctx, s.Draft) // show the draft, wait for edits
+    if err != nil {
+        return s, err
+    }
+    s.Draft = edited
+    return s, nil
+})
+```
+
+See [Interrupts](durable-execution.md#interrupts-human-in-the-loop) for the
+full flow. Node hooks for logging and tracing are covered in
+[Observability](observability.md#graph-hooks).

@@ -84,6 +84,7 @@ type runConfig[S any] struct {
 	checkpointer Checkpointer[S]
 	threadID     string
 	hooks        Hooks[S]
+	resume       *resumeSlot
 }
 
 func (g *Graph[S]) buildConfig(opts ...Option[S]) *runConfig[S] {
@@ -212,6 +213,10 @@ type StepEvent[S any] struct {
 
 	// Step is the step number (1-indexed).
 	Step int
+
+	// Interruption is set on the final event of a run that paused; State is
+	// then the state going into the paused node.
+	Interruption *Interruption
 }
 
 // RunResult contains the final state and execution history.
@@ -221,6 +226,11 @@ type RunResult[S any] struct {
 
 	// Steps contains the history of node executions.
 	Steps []StepEvent[S]
+
+	// Interruption is set when the run paused waiting for input (see
+	// Await). State is then the state going into the paused node; resume
+	// with Resume and WithResumeValue.
+	Interruption *Interruption
 }
 
 // Run executes the graph starting from the entry point with the given
@@ -315,6 +325,9 @@ func (g *Graph[S]) Resume(ctx context.Context, opts ...Option[S]) (*RunResult[S]
 	if cp.Done || cp.Node == END {
 		return &RunResult[S]{State: cp.State}, nil
 	}
+	if cfg.resume != nil {
+		ctx = context.WithValue(ctx, resumeKey{}, cfg.resume)
+	}
 
 	return g.run(ctx, cfg, cp.State, cp.Node, cp.Step, nil)
 }
@@ -355,6 +368,9 @@ func (g *Graph[S]) run(ctx context.Context, cfg *runConfig[S], state S, currentN
 		}
 
 		newState, err := cfg.callNode(ctx, currentNode, fn, state)
+		if ie, ok := asInterrupt(err); ok {
+			return g.pause(ctx, cfg, result, record, step, currentNode, state, ie, err)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("graph: node %q failed: %w", currentNode, err)
 		}
@@ -381,6 +397,9 @@ func (g *Graph[S]) run(ctx context.Context, cfg *runConfig[S], state S, currentN
 				return nil, fmt.Errorf("graph: exceeded maximum steps (%d)", cfg.maxSteps)
 			}
 			results, err := g.runBranches(ctx, cfg, sends)
+			if _, ok := asInterrupt(err); ok {
+				return nil, fmt.Errorf("graph: interrupts are not supported inside fan-out branches: %w", err)
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -413,6 +432,33 @@ func (g *Graph[S]) run(ctx context.Context, cfg *runConfig[S], state S, currentN
 			return nil, err
 		}
 	}
+}
+
+// pause ends a run at an interrupting node: the node will run again on
+// resume, with the state it received this time. Without a checkpointer the
+// run cannot be resumed, so the interrupt is returned as an error (still
+// wrapping the InterruptError, which lets a parent graph running this one
+// as a subgraph pause in turn).
+func (g *Graph[S]) pause(ctx context.Context, cfg *runConfig[S], result *RunResult[S], record func(StepEvent[S]),
+	step int, node string, state S, ie *InterruptError, err error) (*RunResult[S], error) {
+	if cfg.checkpointer == nil {
+		return nil, fmt.Errorf("graph: node %q interrupted but no checkpointer is set: %w", node, err)
+	}
+	intr := &Interruption{Node: node, Payload: ie.Payload}
+	cp := Checkpoint[S]{
+		ThreadID:     cfg.threadID,
+		Step:         step,
+		Node:         node,
+		State:        state,
+		Interruption: intr,
+	}
+	if err := cfg.checkpointer.Save(ctx, cfg.threadID, cp); err != nil {
+		return nil, fmt.Errorf("graph: save checkpoint: %w", err)
+	}
+	record(StepEvent[S]{Node: node, State: state, Step: step, Interruption: intr})
+	result.State = state
+	result.Interruption = intr
+	return result, nil
 }
 
 // saveCheckpoint persists the next node to run and the current state. It
