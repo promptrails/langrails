@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/promptrails/langrails"
 	"github.com/promptrails/langrails/tools"
@@ -115,6 +116,8 @@ func (a *Agent) run(ctx context.Context, messages []langrails.Message, emit func
 
 	result := &Result{}
 	runTool := a.toolChain()
+	stats := &runStats{toolCalls: map[string]int{}}
+	ctx = context.WithValue(ctx, runStatsKey{}, stats)
 
 	for i := 0; i < a.maxIterations; i++ {
 		iteration := i + 1
@@ -177,6 +180,7 @@ func (a *Agent) run(ctx context.Context, messages []langrails.Message, emit func
 				call := tc
 				emit(Event{Type: EventToolCall, Iteration: iteration, ToolCall: &call})
 			}
+			stats.count(tc.Name)
 			out, execErr := runTool(ctx, tc)
 			if emit != nil {
 				call := tc
@@ -194,6 +198,39 @@ func (a *Agent) run(ctx context.Context, messages []langrails.Message, emit func
 	}
 
 	return nil, fmt.Errorf("agent: exceeded maximum iterations (%d)", a.maxIterations)
+}
+
+// runStats counts tool executions within one run, so middleware that is
+// shared between runs (such as ToolCallLimit) can keep per-run limits.
+type runStats struct {
+	mu        sync.Mutex
+	toolCalls map[string]int
+	total     int
+}
+
+type runStatsKey struct{}
+
+func (s *runStats) count(name string) {
+	s.mu.Lock()
+	s.toolCalls[name]++
+	s.total++
+	s.mu.Unlock()
+}
+
+// toolCallCount returns how many times the named tool (or, when name is
+// empty, any tool) has been called in the run ctx belongs to, including the
+// call in progress. It is 0 outside an agent run.
+func toolCallCount(ctx context.Context, name string) int {
+	s, ok := ctx.Value(runStatsKey{}).(*runStats)
+	if !ok {
+		return 0
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if name == "" {
+		return s.total
+	}
+	return s.toolCalls[name]
 }
 
 // baseCall is the innermost CallFunc that invokes the provider.

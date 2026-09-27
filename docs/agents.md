@@ -151,10 +151,113 @@ iteration, even if the model requested tools. The current response is returned.
 | Built-in | Hook | Purpose |
 |----------|------|---------|
 | `SummarizationMiddleware` | BeforeModel | Compress long histories to avoid context overflow |
+| `ContextEditing` | BeforeModel | Clear old tool results past a token threshold (no model call) |
+| `ToolSelector` | BeforeModel | Let a cheap model pick the relevant tools from a large set |
 | `PIIRedactionMiddleware` | Before/After | Mask emails, phone numbers, card numbers |
+| `ModelCallLimit` | AfterModel | Cap model calls per run; end gracefully or fail |
+| `ModelFallback` | WrapModelCall | Retry a failed call with other models |
+| `ToolCallLimit` | WrapToolCall | Cap tool executions per run (all or per tool) |
+| `ToolRetry` | WrapToolCall | Retry failing tools with backoff |
 | `HumanInLoop` | executor gate | Approve or reject tool calls before they run |
 
+They compose freely:
+
+```go
+a := agent.New(provider,
+    agent.WithModel("gpt-4o"),
+    agent.WithTools(set.Definitions(), set),
+    agent.WithMiddleware(
+        agent.NewToolSelector(provider, "gpt-4o-mini", agent.WithMaxTools(5)),
+        agent.NewContextEditing(),
+        agent.NewModelFallback("gpt-4o-mini"),
+        agent.NewModelCallLimit(10),
+        agent.NewToolCallLimit(3, "web_search"),
+        agent.NewToolRetry(2),
+    ),
+)
+```
+
 See the sections below for each.
+
+### Call limits
+
+`ModelCallLimit` caps model calls per run. When the model still wants tools
+after the last allowed call, the run **ends gracefully** with that response
+(its tool calls unexecuted), or fails with `agent.ErrCallLimit` if you ask:
+
+```go
+agent.NewModelCallLimit(5)               // end with the 5th response
+agent.NewModelCallLimit(5).FailOnLimit() // error instead
+```
+
+This differs from `WithMaxIterations`, which always fails.
+
+`ToolCallLimit` caps tool executions per run — all tools together, or each
+named tool separately. A call over the limit is **not executed**; the model
+gets an error result saying the limit was reached, so it can answer with what
+it already has:
+
+```go
+agent.NewToolCallLimit(10)                // at most 10 tool runs in total
+agent.NewToolCallLimit(2, "web_search")   // at most 2 searches; others unlimited
+```
+
+Counts are per run, so one agent (and one middleware value) can serve many
+runs concurrently.
+
+### Tool retry
+
+```go
+agent.NewToolRetry(3,
+    agent.WithToolRetryDelay(200*time.Millisecond), // doubles each retry
+    agent.WithToolRetryIf(isTransient),             // default: retry any error
+    agent.WithToolRetryOn("fetch_url"),             // default: every tool
+)
+```
+
+Only the last error reaches the model.
+
+### Model fallback
+
+`ModelFallback` retries a failed model call with other models **on the same
+provider**, in order:
+
+```go
+agent.NewModelFallback("gpt-4o-mini", "gpt-3.5-turbo")
+```
+
+To fall back to a different provider, wrap the provider instead:
+`langrails.WithFallback(openaiProvider, anthropicProvider)`.
+
+### Context editing
+
+For tool-heavy runs, old tool results are usually the bulk of the context and
+the least useful part of it. `ContextEditing` replaces the content of all but
+the most recent tool results with a placeholder once the history passes a
+token threshold. Unlike summarization it needs no model call, and the model
+still sees that each call happened.
+
+```go
+agent.NewContextEditing(
+    agent.WithClearThreshold(50_000), // default 100,000 estimated tokens
+    agent.WithKeepToolResults(3),     // default 3
+    agent.WithClearedPlaceholder("[cleared]"),
+)
+```
+
+### Tool selection
+
+With dozens of tools, sending all of them on every call costs tokens and
+raises the chance of a wrong pick. `ToolSelector` asks a separate, cheaper
+model to choose the relevant ones for the user's request (via structured
+output, constrained to your tool names), once per run:
+
+```go
+agent.NewToolSelector(provider, "gpt-4o-mini",
+    agent.WithMaxTools(5),               // default 5; skipped when you have ≤ 5
+    agent.WithAlwaysInclude("handoff"),  // kept regardless, not counted
+)
+```
 
 ### Summarization
 
