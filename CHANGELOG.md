@@ -1,8 +1,8 @@
 # Changelog
 
-## [Unreleased]
+## [v1.0.0] - 2026-09-28
 
-The v1 candidate. After v1.0.0 the API is stable: breaking changes would
+First stable release. From here the API is stable: a breaking change would
 need a /v2 module path.
 
 ### Breaking
