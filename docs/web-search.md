@@ -40,12 +40,12 @@ return results for; `ServerTools` run **inside the provider**.
 | OpenAI / compat | `web_search_options` (search-capable models) | inline `url_citation` annotations |
 | Anthropic | `web_search_20250305` server tool (`max_uses`) | text-block `citations` |
 | Gemini | `googleSearch` grounding tool | `groundingMetadata.groundingChunks` |
-| Perplexity | implicit (sonar models) — no request flag needed | top-level `citations` |
 | OpenRouter | `:online` model suffix / web plugin | top-level `citations` |
 | Bedrock | not supported (Converse has no built-in search) | — |
 
-For Perplexity you don't need to set `ServerTools` at all — its sonar models
-search implicitly, and langrails still parses the returned citations.
+Providers whose models search implicitly and return top-level `citations`
+(for example OpenRouter's `:online` models) need no `ServerTools` at all;
+langrails still parses the returned citations.
 
 ## Citations during streaming
 

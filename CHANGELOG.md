@@ -1,5 +1,85 @@
 # Changelog
 
+## [Unreleased]
+
+The v1 candidate. After v1.0.0 the API is stable: breaking changes would
+need a /v2 module path.
+
+### Breaking
+
+The request types are settled before the freeze (see "Migrating" below):
+
+- `CompletionRequest.OutputSchema` is `json.RawMessage` instead of `*[]byte`
+- `CompletionRequest.Thinking` and `ThinkingBudget` are removed in favor of
+  `ReasoningEffort` plus the new `ReasoningBudget *int`
+- `Message.Role` is a typed `Role` (`RoleSystem`, `RoleUser`, `RoleAssistant`,
+  `RoleTool`)
+
+Behavior changes worth knowing:
+
+- compat: strict-mode structured output now applies to every nested object,
+  and optional properties become required-but-nullable. Nested schemas used
+  to be rejected by OpenAI
+- retry: backoff is jittered and capped at one minute by default, and a
+  provider's `Retry-After` replaces the backoff; `WithoutJitter` restores
+  exact delays
+- mcp: a tool result marked `isError` is returned as an error, and multiple
+  text blocks are joined instead of keeping only the first
+
+### Added
+
+- tools: typed tools from Go functions (`tools.New`, `tools.Set`), with the
+  parameter schema generated from the input struct
+- `Generate[T]`: typed structured output, with parse retries and
+  `ParseError`
+- multimodal: audio and document (PDF) input parts (`AudioPart`,
+  `DocumentPart`, `DocumentURLPart`); providers reject parts they cannot
+  carry with `ErrUnsupportedContent` before sending
+- agent: `Stream` / `StreamMessages` for token-level streaming of the whole
+  tool loop
+- agent: built-in `ModelCallLimit`, `ToolCallLimit`, `ToolRetry`,
+  `ModelFallback`, `ContextEditing` and `ToolSelector` middlewares, plus the
+  `ToolWrapper` interface for wrapping tool calls
+- graph: durable human-in-the-loop interrupts (`Await`, `WithResumeValue`,
+  `RunResult.Interruption`)
+- graph: node hooks (`WithHooks`)
+- mcp: stdio transport (`NewStdioClient`), resources and prompts; the HTTP
+  client echoes `Mcp-Session-Id`, sends `notifications/initialized` and
+  follows pagination
+- observability: `WithHooks` provider decorator (request, response, error,
+  stream events; context-returning for tracing)
+- resilience: `WithRateLimit` token bucket, `APIError.RetryAfter` and
+  `RetryAfterFromHeader`, `WithMaxDelay`
+- caching: `WithCache` response cache with `NewMemoryCache` (LRU + TTL)
+- streaming: `StreamAccumulator` and `CollectStream`
+- llm: `FromString("provider:model", key)` with API keys from the
+  conventional environment variables, `ParseModel`, `MustFromString`
+
+### Docs
+
+- the docs site uses the ai-chat design and no longer reads purple
+- new Observability page; stale Perplexity and provider-count references
+  removed
+
+### Migrating from v0.10
+
+```go
+// OutputSchema
+req.OutputSchema = &schema        // before
+req.OutputSchema = schema         // after
+
+// Reasoning
+req.Thinking = true               // before
+req.ReasoningEffort = langrails.ReasoningMedium
+
+req.Thinking, req.ThinkingBudget = true, &n // before
+req.ReasoningBudget = &n                     // after (turns reasoning on)
+
+// Role: literals are unchanged; a string variable needs a conversion
+msg := langrails.Message{Role: "user"}           // still compiles
+msg := langrails.Message{Role: langrails.Role(r)} // r is a string
+```
+
 ## [v0.10.0] - 2026-09-15
 
 **Breaking: the `llm/perplexity` provider is removed**, along with the

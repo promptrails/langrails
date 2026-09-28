@@ -20,7 +20,7 @@ resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
 
 | Feature | Description |
 |---------|-------------|
-| **25 Providers** | OpenAI, Anthropic, Gemini, DeepSeek, Groq, Fireworks, xAI, OpenRouter, Together, Mistral, Cohere, Perplexity, Ollama, Chutes AI, Z.AI, Moonshot (Kimi), Novita AI, DeepInfra, Friendli AI, Cerebras, SambaNova, Hyperbolic, Alibaba DashScope (Qwen), Hugging Face Router, Amazon Bedrock |
+| **24 Providers** | OpenAI, Anthropic, Gemini, DeepSeek, Groq, Fireworks, xAI, OpenRouter, Together, Mistral, Cohere, Ollama, Chutes AI, Z.AI, Moonshot (Kimi), Novita AI, DeepInfra, Friendli AI, Cerebras, SambaNova, Hyperbolic, Alibaba DashScope (Qwen), Hugging Face Router, Amazon Bedrock |
 | **Streaming** | Channel-based, idiomatic Go |
 | **Tool Calling** | Typed tools from Go functions, automatic tool execution loop, `ToolChoice` control |
 | **Reasoning** | Provider-agnostic `ReasoningEffort` (minimal/low/medium/high), reasoning text + token accounting |
@@ -45,7 +45,7 @@ resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
 go get github.com/promptrails/langrails
 ```
 
-Requires Go 1.26.3+ (see `go.mod`).
+Requires Go 1.27+ (see `go.mod`).
 
 ## Documentation
 
@@ -59,10 +59,10 @@ Requires Go 1.26.3+ (see `go.mod`).
 | [Web Search & Citations](web-search.md) | Provider-native search + citations |
 | [Caching](caching.md) | Prompt caching, cached-token reporting, response cache |
 | [Vision / Multimodal](vision.md) | Images, audio and documents in messages |
-| [Structured Output](structured-output.md) | JSON schema + JSON mode |
+| [Structured Output](structured-output.md) | Typed output, JSON schema + JSON mode |
 | [Prompt Templates](prompt-templates.md) | Jinja-style variable substitution |
 | [Memory](memory.md) | Conversation history management |
-| [Tool Calling](tool-calling.md) | Function calling + automatic tool loop |
+| [Tool Calling](tool-calling.md) | Typed tools, function calling + automatic tool loop |
 | [Agents (Middleware)](agents.md) | Middleware agent loop + built-in middleware |
 | [Chain](chain.md) | Sequential prompt pipelines |
 | [Graph](graph.md) | Stateful workflows, fan-out, subgraphs, streaming |

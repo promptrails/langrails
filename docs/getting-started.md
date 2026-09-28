@@ -6,7 +6,7 @@
 go get github.com/promptrails/langrails
 ```
 
-Requires Go 1.26.3 or later (see `go.mod`). No external dependencies — only Go standard library.
+Requires Go 1.27 or later (see `go.mod`). No external dependencies — only Go standard library.
 
 ## Quick Start (Registry)
 
