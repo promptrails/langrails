@@ -52,7 +52,7 @@ Requires Go 1.26.3+ (see `go.mod`).
 | | |
 |---|---|
 | [Getting Started](getting-started.md) | Installation, first request, error handling |
-| [Providers](providers.md) | All providers, config examples |
+| [Providers](providers.md) | All providers, `provider:model` strings, config examples |
 | [Parameters](parameters.md) | All parameters, provider support matrix |
 | [Streaming](streaming.md) | Real-time token streaming |
 | [Reasoning](reasoning.md) | Reasoning effort, thinking output, tokens |

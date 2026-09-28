@@ -23,6 +23,12 @@ Switch providers by changing one constant:
 provider := llm.MustNew(llm.Anthropic, "sk-ant-...")  // or Gemini, Ollama, ...
 ```
 
+Or pick provider and model from config, with the key read from the environment:
+
+```go
+provider, model, err := llm.FromString("anthropic:claude-sonnet-5", "") // reads ANTHROPIC_API_KEY
+```
+
 ## Install
 
 ```bash
@@ -55,7 +61,7 @@ go get github.com/promptrails/langrails
 | | |
 |---|---|
 | [Getting Started](docs/getting-started.md) | Installation, first request, error handling |
-| [Providers](docs/providers.md) | All providers, config examples |
+| [Providers](docs/providers.md) | All providers, `provider:model` strings, config examples |
 | [Parameters](docs/parameters.md) | All parameters, provider support matrix |
 | [Streaming](docs/streaming.md) | Real-time token streaming |
 | [Reasoning](docs/reasoning.md) | Reasoning effort, thinking output, tokens |

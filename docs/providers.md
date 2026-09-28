@@ -1,6 +1,6 @@
 # Providers
 
-langrails supports 25 LLM providers through a unified interface.
+langrails supports 24 LLM providers through a unified interface.
 
 ## Using the Registry
 
@@ -17,6 +17,38 @@ provider := llm.MustNew(llm.Anthropic, "sk-ant-...")
 Available constants: `llm.OpenAI`, `llm.Anthropic`, `llm.Gemini`, `llm.DeepSeek`, `llm.Groq`, `llm.Fireworks`, `llm.XAI`, `llm.OpenRouter`, `llm.Together`, `llm.Mistral`, `llm.Cohere`, `llm.Ollama`, `llm.Chutes`, `llm.ZAI`, `llm.Moonshot`, `llm.Novita`, `llm.DeepInfra`, `llm.Friendli`, `llm.Cerebras`, `llm.SambaNova`, `llm.Hyperbolic`, `llm.DashScope`, `llm.HuggingFace`, `llm.Bedrock`
 
 For provider-specific options (custom base URL, HTTP client), use the direct import instead.
+
+## From a "provider:model" String
+
+When the model comes from configuration, `llm.FromString` takes a single
+`provider:model` string and returns the provider together with the model name:
+
+```go
+provider, model, err := llm.FromString("anthropic:claude-sonnet-5", "")
+
+resp, err := provider.Complete(ctx, &langrails.CompletionRequest{
+    Model:    model, // "claude-sonnet-5"
+    Messages: []langrails.Message{{Role: "user", Content: "Hello!"}},
+})
+```
+
+- The string is split at the **first** colon, so model names may contain
+  colons: `ollama:llama3:8b` → model `llama3:8b`. The provider name is
+  case-insensitive.
+- With an empty key, the provider's conventional environment variable is read:
+  `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY` (or `GOOGLE_API_KEY`),
+  `GROQ_API_KEY`, `MISTRAL_API_KEY`, `HF_TOKEN`, … An error names the variable
+  when none is set. Ollama needs no key; Bedrock reads the AWS environment.
+- `llm.ParseModel(spec)` only splits and validates; `llm.MustFromString` panics
+  on error.
+
+Switching the whole application to another model is then a config change:
+
+```bash
+LLM_MODEL=openai:gpt-4o        ./app
+LLM_MODEL=gemini:gemini-3-pro  ./app
+LLM_MODEL=ollama:llama3:8b     ./app
+```
 
 ## Provider List
 
