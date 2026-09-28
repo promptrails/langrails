@@ -265,7 +265,7 @@ func TestProvider_Complete_StructuredOutput(t *testing.T) {
 	resp, err := provider.Complete(context.Background(), &langrails.CompletionRequest{
 		Model:        "test",
 		Messages:     []langrails.Message{{Role: "user", Content: "Hi"}},
-		OutputSchema: &schema,
+		OutputSchema: schema,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -326,10 +326,11 @@ func TestProvider_Complete_Reasoning(t *testing.T) {
 	defer server.Close()
 
 	provider := New(Config{Name: "test", BaseURL: server.URL, APIKey: "key"})
+	budget := 8192 // mapped to the nearest effort level
 	_, err := provider.Complete(context.Background(), &langrails.CompletionRequest{
-		Model:    "o1",
-		Messages: []langrails.Message{{Role: "user", Content: "Think"}},
-		Thinking: true,
+		Model:           "o1",
+		Messages:        []langrails.Message{{Role: "user", Content: "Think"}},
+		ReasoningBudget: &budget,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

@@ -359,10 +359,10 @@ func buildRequestBody(req *langrails.CompletionRequest) ([]byte, error) {
 	// Reasoning. Carried via additionalModelRequestFields (model-family specific;
 	// the thinking form is for Anthropic Claude models on Bedrock — it mirrors
 	// Anthropic's native thinking field passed through Converse).
-	if req.Thinking || req.ReasoningEffort.Requested() {
+	if req.ReasoningBudget != nil || req.ReasoningEffort.Requested() {
 		budget := 0
-		if req.ThinkingBudget != nil {
-			budget = *req.ThinkingBudget
+		if req.ReasoningBudget != nil {
+			budget = *req.ReasoningBudget
 		} else {
 			budget = req.ReasoningEffort.BudgetTokens()
 		}
@@ -382,22 +382,22 @@ func buildRequestBody(req *langrails.CompletionRequest) ([]byte, error) {
 		}})
 	}
 
-	if req.OutputSchema != nil {
+	if len(req.OutputSchema) > 0 {
 		tools = append(tools, toolEntry{ToolSpec: &toolSpec{
 			Name:        "structured_output",
 			Description: "Return the response in the specified JSON schema.",
-			InputSchema: toolInputSchema{JSON: json.RawMessage(*req.OutputSchema)},
+			InputSchema: toolInputSchema{JSON: req.OutputSchema},
 		}})
 	}
 
 	// ToolChoiceNone forbids tool calls; Converse has no "none", so we omit the
 	// tool config entirely (the model can't call what it isn't given).
-	noTools := req.OutputSchema == nil && req.ToolChoice != nil && req.ToolChoice.Mode == langrails.ToolChoiceNone
+	noTools := len(req.OutputSchema) == 0 && req.ToolChoice != nil && req.ToolChoice.Mode == langrails.ToolChoiceNone
 
 	if len(tools) > 0 && !noTools {
 		r.ToolConfig = &toolConfig{Tools: tools}
 		switch {
-		case req.OutputSchema != nil:
+		case len(req.OutputSchema) > 0:
 			r.ToolConfig.ToolChoice = &toolChoice{Tool: &toolChoiceName{Name: "structured_output"}}
 		default:
 			r.ToolConfig.ToolChoice = convertToolChoice(req.ToolChoice)

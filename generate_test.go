@@ -44,10 +44,10 @@ func TestGenerateStruct(t *testing.T) {
 	if got.Label != "positive" || got.Confidence != 0.9 || resp == nil {
 		t.Errorf("got %+v", got)
 	}
-	if req.OutputSchema != nil {
+	if len(req.OutputSchema) > 0 {
 		t.Error("caller's request was modified")
 	}
-	schema := string(*p.reqs[0].OutputSchema)
+	schema := string(p.reqs[0].OutputSchema)
 	if !strings.Contains(schema, `"enum":["positive","negative"]`) {
 		t.Errorf("schema = %s", schema)
 	}
@@ -62,7 +62,7 @@ func TestGenerateWrapsNonObject(t *testing.T) {
 	if strings.Join(got, ",") != "a,b" {
 		t.Errorf("got %v", got)
 	}
-	schema := string(*p.reqs[0].OutputSchema)
+	schema := string(p.reqs[0].OutputSchema)
 	if schema != `{"properties":{"value":{"type":"array","items":{"type":"string"}}},"type":"object","required":["value"]}` {
 		t.Errorf("schema = %s", schema)
 	}

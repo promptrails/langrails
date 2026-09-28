@@ -158,44 +158,33 @@ req.Tools = []langrails.ToolDefinition{
 }
 ```
 
-### Thinking Mode
+### Reasoning
 
-Enable extended thinking / chain-of-thought reasoning.
+Enable extended thinking / chain-of-thought reasoning with a provider-agnostic
+effort level, optionally with an explicit token budget:
 
 ```go
-// Enable thinking
-req.Thinking = true
+req.ReasoningEffort = langrails.ReasoningHigh // minimal | low | medium | high
 
-// With budget (Anthropic only)
+// Exact budget, for providers that take one (Anthropic, Gemini 2.5, Bedrock).
+// Setting it alone also turns reasoning on.
 budget := 10000
-req.Thinking = true
-req.ThinkingBudget = &budget
+req.ReasoningBudget = &budget
 ```
 
-**Anthropic** — Extended thinking with configurable budget:
 ```go
-provider := anthropic.New("sk-ant-...")
 resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
-    Model:          "claude-sonnet-4-20250514",
-    Messages:       messages,
-    Thinking:       true,
-    ThinkingBudget: &budget,  // Default: 10000 tokens
+    Model:           "claude-sonnet-4-20250514",
+    Messages:        messages,
+    ReasoningBudget: &budget,
 })
 
 fmt.Println(resp.Thinking) // Internal reasoning (may be long)
 fmt.Println(resp.Content)  // Final answer
 ```
 
-**OpenAI** — Reasoning effort for o-series models:
-```go
-provider := openai.New("sk-...")
-resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
-    Model:    "o1",
-    Messages: messages,
-    Thinking: true,
-    // ThinkingBudget maps to effort: <=1024 → "low", >=16384 → "high", else "medium"
-})
-```
+On providers that take only an effort level (OpenAI and compat), a budget is
+mapped to the nearest level: `<=1024` → low, `>=16384` → high, else medium.
 
 | Provider | Method | Response Field |
 |----------|--------|----------------|
@@ -203,14 +192,6 @@ resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
 | OpenAI | `reasoning.effort` (minimal/low/medium/high) | `resp.Thinking` (reasoning models) |
 | Gemini | `thinkingConfig` (`thinkingLevel` on 3.x, token budget on 2.5) | `resp.Thinking` |
 | Bedrock | `reasoning_config` (Claude models) | `resp.Thinking` |
-
-### ReasoningEffort
-
-Provider-agnostic reasoning level — preferred over `Thinking`/`ThinkingBudget`:
-
-```go
-req.ReasoningEffort = langrails.ReasoningHigh // minimal | low | medium | high
-```
 
 See [Reasoning](reasoning.md) for the full per-provider mapping, streaming
 (`EventReasoning`), and `Usage.ReasoningTokens`.
@@ -288,8 +269,7 @@ resp, err := provider.Complete(ctx, &langrails.CompletionRequest{
     PresencePenalty:  &pp,
     Stop:             []string{"THE END"},
     Seed:             &seed,
-    Thinking:         true,
-    ThinkingBudget:   &budget,
+    ReasoningBudget:  &budget,
 })
 ```
 

@@ -1,6 +1,9 @@
 package langrails
 
-import "context"
+import (
+	"context"
+	"encoding/json"
+)
 
 // Provider is the unified interface that all LLM providers must implement.
 // It provides both synchronous and streaming completion methods.
@@ -67,22 +70,20 @@ type CompletionRequest struct {
 	// OutputSchema is an optional JSON schema for structured output.
 	// When set, the provider will attempt to constrain the output to match
 	// this schema. Support varies by provider.
-	OutputSchema *[]byte
-
-	// Thinking enables extended thinking / chain-of-thought mode.
-	// When true, Anthropic returns thinking blocks, and OpenAI uses
-	// reasoning effort for o-series models.
-	Thinking bool
-
-	// ThinkingBudget limits the number of thinking tokens (Anthropic only).
-	// Ignored when Thinking is false.
-	ThinkingBudget *int
+	OutputSchema json.RawMessage
 
 	// ReasoningEffort selects reasoning intensity in a provider-agnostic way
-	// ("minimal", "low", "medium", "high"). Empty means off / provider default.
-	// When set, it takes precedence over Thinking/ThinkingBudget. Providers that
-	// use a token budget (Anthropic, Gemini) derive one from the effort level.
+	// ("minimal", "low", "medium", "high"). Empty means off / provider default;
+	// ReasoningNone explicitly turns reasoning off. Providers that use a token
+	// budget (Anthropic, Gemini 2.5, Bedrock) derive one from the effort level.
 	ReasoningEffort ReasoningEffort
+
+	// ReasoningBudget sets an explicit reasoning token budget, for providers
+	// that take one (Anthropic, Gemini 2.5, Bedrock). Setting it turns
+	// reasoning on even without a ReasoningEffort, and it takes precedence
+	// over the budget an effort level implies. Providers that only take an
+	// effort level map the budget to the nearest level.
+	ReasoningBudget *int
 
 	// ToolChoice controls whether and which tool the model must call. When nil,
 	// the provider default (usually "auto") applies. Ignored by providers that

@@ -114,7 +114,7 @@ func TestProvider_Complete_StructuredOutput(t *testing.T) {
 	resp, err := provider.Complete(context.Background(), &langrails.CompletionRequest{
 		Model:        "gemini-2.0-flash",
 		Messages:     []langrails.Message{{Role: "user", Content: "Analyze"}},
-		OutputSchema: &schema,
+		OutputSchema: schema,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -619,8 +619,8 @@ func TestThinkingDisabledForFlashToolUse(t *testing.T) {
 	if strings.Contains(body(&langrails.CompletionRequest{Model: "gemini-2.5-flash"}), `"thinkingConfig"`) {
 		t.Error("flash WITHOUT tools must keep dynamic thinking (no thinkingConfig)")
 	}
-	if strings.Contains(body(&langrails.CompletionRequest{Model: "gemini-2.5-flash", Tools: tools, Thinking: true}), `"thinkingBudget":0`) {
-		t.Error("explicit Thinking must not be overridden to budget 0")
+	if strings.Contains(body(&langrails.CompletionRequest{Model: "gemini-2.5-flash", Tools: tools, ReasoningEffort: langrails.ReasoningMedium}), `"thinkingBudget":0`) {
+		t.Error("explicit reasoning must not be overridden to budget 0")
 	}
 	if strings.Contains(body(&langrails.CompletionRequest{Model: "gemini-2.5-pro", Tools: tools}), `"thinkingConfig"`) {
 		t.Error("Pro must be left untouched (cannot disable thinking on pro)")

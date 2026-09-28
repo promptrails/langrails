@@ -148,7 +148,7 @@ func (t *ToolSelector) BeforeModel(ctx context.Context, s *State) error {
 		Model:        t.model,
 		SystemPrompt: fmt.Sprintf(toolSelectorPrompt, t.maxTools, list.String()),
 		Messages:     []langrails.Message{{Role: "user", Content: lastUserText(s.Request.Messages)}},
-		OutputSchema: &schema,
+		OutputSchema: schema,
 	})
 	if err != nil {
 		return fmt.Errorf("tool selector: %w", err)

@@ -124,7 +124,7 @@ func TestProvider_Complete_StructuredOutput(t *testing.T) {
 	resp, err := provider.Complete(context.Background(), &langrails.CompletionRequest{
 		Model:        "claude-sonnet-4-20250514",
 		Messages:     []langrails.Message{{Role: "user", Content: "Analyze"}},
-		OutputSchema: &schema,
+		OutputSchema: schema,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -162,10 +162,9 @@ func TestProvider_Complete_Thinking(t *testing.T) {
 	budget := 5000
 	provider := New("key", WithBaseURL(server.URL))
 	resp, err := provider.Complete(context.Background(), &langrails.CompletionRequest{
-		Model:          "claude-sonnet-4-20250514",
-		Messages:       []langrails.Message{{Role: "user", Content: "Think hard"}},
-		Thinking:       true,
-		ThinkingBudget: &budget,
+		Model:           "claude-sonnet-4-20250514",
+		Messages:        []langrails.Message{{Role: "user", Content: "Think hard"}},
+		ReasoningBudget: &budget,
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

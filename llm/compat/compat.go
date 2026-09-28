@@ -291,8 +291,8 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream boo
 		oaiReq.Seed = req.Seed
 	}
 
-	// Reasoning effort. An explicit ReasoningEffort wins; otherwise fall back to
-	// the legacy Thinking + ThinkingBudget heuristic for backward compatibility.
+	// Reasoning effort. An explicit ReasoningEffort wins; otherwise a
+	// ReasoningBudget is mapped to the nearest effort level.
 	//
 	// ReasoningNone is deliberately carried through rather than dropped: on the
 	// effort-field style it is the whole point, since a model that reasons by
@@ -302,20 +302,18 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream boo
 	switch {
 	case req.ReasoningEffort != "":
 		effort = string(req.ReasoningEffort)
-	case req.Thinking:
+	case req.ReasoningBudget != nil:
 		effort = "medium"
-		if req.ThinkingBudget != nil {
-			if *req.ThinkingBudget <= 1024 {
-				effort = "low"
-			} else if *req.ThinkingBudget >= 16384 {
-				effort = "high"
-			}
+		if *req.ReasoningBudget <= 1024 {
+			effort = "low"
+		} else if *req.ReasoningBudget >= 16384 {
+			effort = "high"
 		}
 	}
 	if effort != "" {
 		if p.config.ReasoningStyle == ReasoningStyleEffortField {
 			oaiReq.ReasoningEffort = effort
-		} else if req.ReasoningEffort.Requested() || req.Thinking {
+		} else if req.ReasoningEffort.Requested() || req.ReasoningBudget != nil {
 			oaiReq.Reasoning = &reasoningParam{Effort: effort}
 		}
 	}
@@ -341,8 +339,8 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream boo
 	}
 
 	switch {
-	case req.OutputSchema != nil:
-		schema := enforceStrictSchema(*req.OutputSchema)
+	case len(req.OutputSchema) > 0:
+		schema := enforceStrictSchema(req.OutputSchema)
 		oaiReq.ResponseFormat = &responseFormat{
 			Type: "json_schema",
 			JSONSchema: &jsonSchemaParam{
@@ -491,7 +489,7 @@ func convertMessages(req *langrails.CompletionRequest) []message {
 
 	for _, m := range req.Messages {
 		msg := message{
-			Role: m.Role,
+			Role: string(m.Role),
 		}
 
 		// Multimodal content parts

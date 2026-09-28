@@ -19,24 +19,24 @@ fmt.Println(resp.Content)  // the final answer
 fmt.Println(resp.Usage.ReasoningTokens)
 ```
 
-`ReasoningEffort` takes precedence over the legacy `Thinking bool` /
-`ThinkingBudget *int` fields, which remain supported for explicit Anthropic /
-Gemini token budgets.
+For an exact token budget set `ReasoningBudget *int`. It turns reasoning on by
+itself, and takes precedence over the budget an effort level implies.
 
 ## How effort maps per provider
 
 | Provider | Mapping |
 |----------|---------|
 | OpenAI / compat | `reasoning.effort` = the effort string directly |
-| Anthropic | extended thinking with a token budget derived from effort (minimal=1024, low=4096, medium=8192, high=16384); `ThinkingBudget` overrides |
+| Anthropic | extended thinking with a token budget derived from effort (minimal=1024, low=4096, medium=8192, high=16384); `ReasoningBudget` overrides |
 | Gemini 3 | `generationConfig.thinkingConfig.thinkingLevel` = the effort string directly |
 | Gemini 2.5 | `generationConfig.thinkingConfig` (`includeThoughts` + budget derived from effort) |
 | Bedrock | `additionalModelRequestFields.reasoning_config` (Claude models) |
 
 Providers that take a token budget derive it from the effort via
-`ReasoningEffort.BudgetTokens()`; pass `ThinkingBudget` to set an exact budget.
-For Gemini 3, prefer `ReasoningEffort`; numeric `ThinkingBudget` is retained only
-for legacy compatibility.
+`ReasoningEffort.BudgetTokens()`; pass `ReasoningBudget` to set an exact budget.
+For Gemini 3, prefer `ReasoningEffort` (sent as `thinkingLevel`); a
+`ReasoningBudget` is sent as a numeric budget instead. OpenAI and compat
+providers take only an effort level, so a budget is mapped to the nearest one.
 
 ## Streaming reasoning
 

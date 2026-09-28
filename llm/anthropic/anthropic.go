@@ -264,12 +264,12 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream boo
 		r.Stop = req.Stop
 	}
 
-	// Extended thinking. Enabled by Thinking or an explicit ReasoningEffort.
-	// Budget precedence: explicit ThinkingBudget > effort-derived budget > default.
-	if req.Thinking || req.ReasoningEffort.Requested() {
+	// Extended thinking. Enabled by ReasoningEffort or ReasoningBudget.
+	// Budget precedence: explicit ReasoningBudget > effort-derived budget > default.
+	if req.ReasoningBudget != nil || req.ReasoningEffort.Requested() {
 		budget := 10000 // default
-		if req.ThinkingBudget != nil {
-			budget = *req.ThinkingBudget
+		if req.ReasoningBudget != nil {
+			budget = *req.ReasoningBudget
 		} else if b := req.ReasoningEffort.BudgetTokens(); b > 0 {
 			budget = b
 		}
@@ -282,11 +282,11 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream boo
 
 	// Structured output: define schema as a tool and force the model to use it.
 	// Structured output takes precedence over a user-supplied ToolChoice.
-	if req.OutputSchema != nil {
+	if len(req.OutputSchema) > 0 {
 		r.Tools = append(r.Tools, tool{
 			Name:        "structured_output",
 			Description: "Return the response in the specified JSON schema.",
-			InputSchema: json.RawMessage(*req.OutputSchema),
+			InputSchema: req.OutputSchema,
 		})
 		r.ToolChoice = &toolChoice{Type: "tool", Name: "structured_output"}
 	} else if tc := convertToolChoice(req.ToolChoice); tc != nil {
@@ -448,7 +448,7 @@ func convertMessages(req *langrails.CompletionRequest) []message {
 
 		default:
 			msgs = append(msgs, message{
-				Role:    m.Role,
+				Role:    string(m.Role),
 				Content: convertContentParts(m),
 			})
 		}

@@ -320,7 +320,7 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest) ([]byte, e
 	}
 
 	needsConfig := req.Temperature != nil || req.MaxTokens != nil || req.TopP != nil ||
-		req.TopK != nil || len(req.Stop) > 0 || req.OutputSchema != nil
+		req.TopK != nil || len(req.Stop) > 0 || len(req.OutputSchema) > 0
 	if needsConfig {
 		r.GenerationConfig = &generationConfig{
 			Temperature:   req.Temperature,
@@ -332,11 +332,11 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest) ([]byte, e
 	}
 
 	// Structured output via responseSchema, or schema-less JSON mode.
-	if req.OutputSchema != nil {
+	if len(req.OutputSchema) > 0 {
 		if r.GenerationConfig == nil {
 			r.GenerationConfig = &generationConfig{}
 		}
-		schema := json.RawMessage(*req.OutputSchema)
+		schema := req.OutputSchema
 		r.GenerationConfig.ResponseMIMEType = "application/json"
 		r.GenerationConfig.ResponseJSONSchema = &schema
 	} else if req.ResponseFormat == langrails.ResponseFormatJSONObject {
@@ -347,20 +347,20 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest) ([]byte, e
 	}
 
 	// Reasoning / thinking. Gemini 3 uses named thinking levels; Gemini 2.5
-	// uses token budgets. Keep the legacy Thinking/ThinkingBudget behavior for
-	// callers that request it without a provider-agnostic ReasoningEffort.
-	if req.Thinking || req.ReasoningEffort.Requested() {
+	// uses token budgets. An explicit ReasoningBudget is sent as a budget on
+	// either generation.
+	if req.ReasoningBudget != nil || req.ReasoningEffort.Requested() {
 		if r.GenerationConfig == nil {
 			r.GenerationConfig = &generationConfig{}
 		}
 		tc := &thinkingConfig{IncludeThoughts: true}
-		if req.ReasoningEffort.Requested() && isGemini3(req.Model) {
+		if req.ReasoningBudget == nil && req.ReasoningEffort.Requested() && isGemini3(req.Model) {
 			level := string(req.ReasoningEffort)
 			tc.ThinkingLevel = &level
 		} else {
 			budget := 0
-			if req.ThinkingBudget != nil {
-				budget = *req.ThinkingBudget
+			if req.ReasoningBudget != nil {
+				budget = *req.ReasoningBudget
 			} else {
 				budget = req.ReasoningEffort.BudgetTokens()
 			}
@@ -376,7 +376,7 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest) ([]byte, e
 		// tool call — stalling tool-use loops. Flash (and flash-lite) support
 		// disabling thinking (budget 0), so do so for tool-use requests that did
 		// not explicitly ask for thinking. Structured-output / plain calls keep
-		// dynamic thinking, and callers can force it back on via Thinking.
+		// dynamic thinking, and callers can force it back on via ReasoningEffort.
 		if r.GenerationConfig == nil {
 			r.GenerationConfig = &generationConfig{}
 		}
@@ -494,7 +494,7 @@ func convertMessages(req *langrails.CompletionRequest) []content {
 	var contents []content
 
 	for _, m := range req.Messages {
-		role := m.Role
+		role := string(m.Role)
 		if role == "assistant" {
 			role = "model"
 		}

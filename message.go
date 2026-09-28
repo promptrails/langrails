@@ -2,11 +2,23 @@ package langrails
 
 import "encoding/json"
 
+// Role identifies who sent a message.
+type Role string
+
+// Message roles.
+const (
+	RoleSystem    Role = "system"
+	RoleUser      Role = "user"
+	RoleAssistant Role = "assistant"
+	RoleTool      Role = "tool"
+)
+
 // Message represents a single message in a conversation.
 type Message struct {
-	// Role is the role of the message sender.
-	// Valid values: "system", "user", "assistant", "tool".
-	Role string
+	// Role is the role of the message sender: RoleSystem, RoleUser,
+	// RoleAssistant or RoleTool. Untyped string constants such as "user"
+	// still work.
+	Role Role
 
 	// Content is the text content of the message.
 	// For simple text-only messages, set this field.

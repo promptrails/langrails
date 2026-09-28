@@ -123,7 +123,7 @@ func (c *Client) GetPrompt(ctx context.Context, name string, args map[string]str
 
 	msgs := make([]langrails.Message, 0, len(result.Messages))
 	for _, m := range result.Messages {
-		msg := langrails.Message{Role: m.Role}
+		msg := langrails.Message{Role: langrails.Role(m.Role)}
 		switch m.Content.Type {
 		case "image":
 			msg.ContentParts = []langrails.ContentPart{langrails.ImageBase64Part(m.Content.Data, m.Content.MIMEType)}

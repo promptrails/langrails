@@ -31,9 +31,9 @@ func longMessages(n int) []langrails.Message {
 	msgs := make([]langrails.Message, n)
 	body := strings.Repeat("x", 400) // ~100 tokens each
 	for i := range msgs {
-		role := "user"
+		role := langrails.RoleUser
 		if i%2 == 1 {
-			role = "assistant"
+			role = langrails.RoleAssistant
 		}
 		msgs[i] = langrails.Message{Role: role, Content: body}
 	}

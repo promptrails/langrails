@@ -216,7 +216,7 @@ func TestToolSelector(t *testing.T) {
 		t.Errorf("tools = %v", names)
 	}
 	if sel.req.Model != "cheap" || sel.req.Messages[0].Content != "weather in Rome?" ||
-		!strings.Contains(string(*sel.req.OutputSchema), `"enum":["weather","email","search","calc","help"]`) {
+		!strings.Contains(string(sel.req.OutputSchema), `"enum":["weather","email","search","calc","help"]`) {
 		t.Errorf("selector request = %+v", sel.req)
 	}
 

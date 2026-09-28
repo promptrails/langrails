@@ -83,7 +83,7 @@ func Generate[T any](ctx context.Context, p Provider, req *CompletionRequest, op
 	}
 
 	r := *req
-	r.OutputSchema = &schema
+	r.OutputSchema = schema
 	r.Messages = append([]Message(nil), req.Messages...)
 
 	for attempt := 0; ; attempt++ {

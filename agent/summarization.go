@@ -107,7 +107,7 @@ func (m *SummarizationMiddleware) BeforeModel(ctx context.Context, state *State)
 func (m *SummarizationMiddleware) summarize(ctx context.Context, msgs []langrails.Message) (string, error) {
 	var b strings.Builder
 	for _, msg := range msgs {
-		b.WriteString(msg.Role)
+		b.WriteString(string(msg.Role))
 		b.WriteString(": ")
 		b.WriteString(messageText(msg))
 		b.WriteByte('\n')
