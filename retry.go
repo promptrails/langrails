@@ -159,7 +159,7 @@ func (r *RetryProvider) backoff(attempt int) time.Duration {
 	}
 	if r.jitter && delay > 1 {
 		half := delay / 2
-		delay = half + rand.N(delay-half+1)
+		delay = half + rand.N(delay-half+1) // #nosec G404 -- backoff jitter, not security-sensitive
 	}
 	return delay
 }

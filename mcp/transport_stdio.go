@@ -40,7 +40,7 @@ type stdioTransport struct {
 }
 
 func startStdio(command string, args, env []string, dir string, stderr io.Writer) (*stdioTransport, error) {
-	cmd := exec.Command(command, args...)
+	cmd := exec.Command(command, args...) // #nosec G204 -- running the caller-chosen MCP server is the purpose of NewStdioClient
 	cmd.Dir = dir
 	if len(env) > 0 {
 		cmd.Env = append(os.Environ(), env...)
