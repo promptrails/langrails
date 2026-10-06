@@ -22,6 +22,7 @@ type RetryProvider struct {
 	baseDelay  time.Duration
 	maxDelay   time.Duration
 	jitter     bool
+	retryable  func(error) bool
 }
 
 // RetryOption configures the retry behavior.
@@ -55,6 +56,28 @@ func WithoutJitter() RetryOption {
 	}
 }
 
+// WithRetryableStatuses restricts retries to these HTTP status codes on an
+// APIError. By default a rate limit (429) or any server error (5xx) is
+// retried; pass e.g. WithRetryableStatuses(429, 503) so only a transient
+// overload is retried and a deterministic 500/502 fails fast instead of
+// waiting out a backoff for an error that will not clear. A non-APIError, or a
+// status not listed, is not retried.
+func WithRetryableStatuses(statuses ...int) RetryOption {
+	set := make(map[int]bool, len(statuses))
+	for _, s := range statuses {
+		set[s] = true
+	}
+	return func(r *RetryProvider) {
+		r.retryable = func(err error) bool {
+			var apiErr *APIError
+			if errors.As(err, &apiErr) {
+				return set[apiErr.StatusCode]
+			}
+			return false
+		}
+	}
+}
+
 // WithRetry wraps a provider with retry logic. maxRetries is the maximum
 // number of retry attempts (not including the initial attempt).
 //
@@ -68,6 +91,7 @@ func WithRetry(provider Provider, maxRetries int, opts ...RetryOption) *RetryPro
 		baseDelay:  time.Second,
 		maxDelay:   DefaultMaxRetryDelay,
 		jitter:     true,
+		retryable:  isRetryable,
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -87,7 +111,7 @@ func (r *RetryProvider) Complete(ctx context.Context, req *CompletionRequest) (*
 
 		lastErr = err
 
-		if !isRetryable(err) {
+		if !r.retryable(err) {
 			return nil, err
 		}
 
@@ -114,7 +138,7 @@ func (r *RetryProvider) Stream(ctx context.Context, req *CompletionRequest) (<-c
 
 		lastErr = err
 
-		if !isRetryable(err) {
+		if !r.retryable(err) {
 			return nil, err
 		}
 

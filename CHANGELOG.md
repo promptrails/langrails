@@ -1,5 +1,15 @@
 # Changelog
 
+## [v1.0.1] - 2026-10-06
+
+### Added
+
+- retry: `WithRetryableStatuses(statuses ...int)` narrows retries to the
+  given HTTP status codes on an `APIError`. The default is unchanged (a rate
+  limit or any 5xx), so this is opt-in: pass `WithRetryableStatuses(429, 503)`
+  to retry only a transient overload and let a deterministic 500/502 fail fast
+  instead of waiting out a backoff for an error that will not clear.
+
 ## [v1.0.0] - 2026-09-28
 
 First stable release. From here the API is stable: a breaking change would

@@ -280,3 +280,43 @@ func TestRetryProvider_BackoffJitterAndCap(t *testing.T) {
 		t.Errorf("zero base delay = %v", d)
 	}
 }
+
+func TestRetryProvider_WithRetryableStatuses_RetriesListed(t *testing.T) {
+	calls := 0
+	inner := &mockProvider{
+		completeFunc: func(_ context.Context, _ *CompletionRequest) (*CompletionResponse, error) {
+			calls++
+			if calls < 2 {
+				return nil, &APIError{StatusCode: 503, Message: "high demand", Provider: "gemini"}
+			}
+			return &CompletionResponse{Content: "ok"}, nil
+		},
+	}
+	provider := WithRetry(inner, 2, WithBaseDelay(time.Millisecond), WithRetryableStatuses(429, 503))
+	resp, err := provider.Complete(context.Background(), &CompletionRequest{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Content != "ok" || calls != 2 {
+		t.Errorf("want ok after 1 retry, got content=%q calls=%d", resp.Content, calls)
+	}
+}
+
+func TestRetryProvider_WithRetryableStatuses_SkipsUnlisted(t *testing.T) {
+	calls := 0
+	inner := &mockProvider{
+		completeFunc: func(_ context.Context, _ *CompletionRequest) (*CompletionResponse, error) {
+			calls++
+			return nil, &APIError{StatusCode: 500, Message: "server error", Provider: "test"}
+		},
+	}
+	// 500 is retryable by default but not in the allow-list, so it must fail fast.
+	provider := WithRetry(inner, 3, WithBaseDelay(time.Millisecond), WithRetryableStatuses(429, 503))
+	_, err := provider.Complete(context.Background(), &CompletionRequest{})
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if calls != 1 {
+		t.Errorf("expected 1 call (no retry for an unlisted status), got %d", calls)
+	}
+}
