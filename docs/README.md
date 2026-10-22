@@ -32,6 +32,7 @@ resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
 | **MCP** | Model Context Protocol client: HTTP and stdio transports, tools, resources, prompts |
 | **A2A** | Agent-to-Agent protocol client + server |
 | **Structured Output** | `Generate[T]` decodes into Go types; JSON schema + JSON mode across all providers |
+| **Decisions** | Decision models (OpenAI Decisions / GPT Luna, TypeSafe Jev and System One servers) answer yes/no, choice and score questions with probabilities |
 | **Vision / Multimodal** | Images, audio and documents (PDF) in messages |
 | **Prompt Templates** | Jinja-style `{{ variable }}` syntax |
 | **Memory** | Conversation history with token limits |
@@ -60,6 +61,7 @@ Requires Go 1.27+ (see `go.mod`).
 | [Caching](caching.md) | Prompt caching, cached-token reporting, response cache |
 | [Vision / Multimodal](vision.md) | Images, audio and documents in messages |
 | [Structured Output](structured-output.md) | Typed output, JSON schema + JSON mode |
+| [Decisions](decisions.md) | Decision models: yes/no, choice and score with probabilities |
 | [Prompt Templates](prompt-templates.md) | Jinja-style variable substitution |
 | [Memory](memory.md) | Conversation history management |
 | [Tool Calling](tool-calling.md) | Typed tools, function calling + automatic tool loop |

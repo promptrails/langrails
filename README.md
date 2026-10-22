@@ -49,6 +49,7 @@ go get github.com/promptrails/langrails
 - **MCP** — Model Context Protocol client: HTTP and stdio transports, tools, resources, prompts
 - **A2A** — Agent-to-Agent protocol client + server
 - **Structured output** — `Generate[T]` decodes into Go types; JSON schema + JSON mode across all providers
+- **Decisions** — Decision models (OpenAI Decisions / GPT Luna, TypeSafe Jev and System One servers) for yes/no, choice and score questions answered with probabilities; any chat model as a fallback
 - **Vision / Multimodal** — Images, audio and documents (PDF) in messages
 - **Prompt templates** — Jinja-style `{{ variable }}` syntax
 - **Memory** — Conversation history with token limits
@@ -69,6 +70,7 @@ go get github.com/promptrails/langrails
 | [Caching](docs/caching.md) | Prompt caching, cached-token reporting, response cache |
 | [Vision / Multimodal](docs/vision.md) | Images, audio and documents in messages |
 | [Structured Output](docs/structured-output.md) | Typed output, JSON schema + JSON mode |
+| [Decisions](docs/decisions.md) | Decision models: yes/no, choice and score with probabilities |
 | [Prompt Templates](docs/prompt-templates.md) | Jinja-style variable substitution |
 | [Memory](docs/memory.md) | Conversation history management |
 | [Tool Calling](docs/tool-calling.md) | Typed tools, function calling + automatic tool loop |

@@ -10,6 +10,7 @@
   - [Caching](caching.md)
   - [Vision / Multimodal](vision.md)
   - [Structured Output](structured-output.md)
+  - [Decisions](decisions.md)
   - [Prompt Templates](prompt-templates.md)
   - [Memory](memory.md)
   - [Retry, Fallback & Rate Limiting](retry-fallback.md)
