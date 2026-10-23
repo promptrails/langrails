@@ -19,6 +19,10 @@ type NodeFunc[S any] func(ctx context.Context, state S) (S, error)
 // It should return the name of the next node to execute.
 type RouterFunc[S any] func(state S) string
 
+// RouterCtxFunc is a RouterFunc that receives the run's context and can
+// fail, for routing decisions that call out to a model or service.
+type RouterCtxFunc[S any] func(ctx context.Context, state S) (string, error)
+
 // Send dispatches a copy of the state to a named node as part of a
 // fan-out. Each Send becomes one concurrent branch. This mirrors
 // LangGraph's Send API for map-reduce style workflows.
@@ -62,7 +66,7 @@ const defaultMaxSteps = 100
 type Graph[S any] struct {
 	nodes            map[string]NodeFunc[S]
 	edges            map[string]string
-	conditionalEdges map[string]RouterFunc[S]
+	conditionalEdges map[string]RouterCtxFunc[S]
 	fanOuts          map[string]fanOut[S]
 	entryPoint       string
 }
@@ -72,7 +76,7 @@ func New[S any]() *Graph[S] {
 	return &Graph[S]{
 		nodes:            make(map[string]NodeFunc[S]),
 		edges:            make(map[string]string),
-		conditionalEdges: make(map[string]RouterFunc[S]),
+		conditionalEdges: make(map[string]RouterCtxFunc[S]),
 		fanOuts:          make(map[string]fanOut[S]),
 	}
 }
@@ -184,6 +188,16 @@ func (g *Graph[S]) AddEdge(from, to string) {
 // AddConditionalEdge adds an edge that uses a router function to
 // determine the next node based on the current state.
 func (g *Graph[S]) AddConditionalEdge(from string, router RouterFunc[S]) {
+	g.conditionalEdges[from] = func(_ context.Context, state S) (string, error) {
+		return router(state), nil
+	}
+}
+
+// AddConditionalEdgeCtx adds an edge whose router receives the run's
+// context and may fail, for example one that asks a decision model where
+// to go next. An error fails the run like a node error; the node's output
+// is not checkpointed, so a resumed run executes the node again.
+func (g *Graph[S]) AddConditionalEdgeCtx(from string, router RouterCtxFunc[S]) {
 	g.conditionalEdges[from] = router
 }
 
@@ -421,7 +435,11 @@ func (g *Graph[S]) run(ctx context.Context, cfg *runConfig[S], state S, currentN
 
 		// Determine next node
 		if router, ok := g.conditionalEdges[currentNode]; ok {
-			currentNode = router(state)
+			next, err := router(ctx, state)
+			if err != nil {
+				return nil, fmt.Errorf("graph: router for node %q failed: %w", currentNode, err)
+			}
+			currentNode = next
 		} else if next, ok := g.edges[currentNode]; ok {
 			currentNode = next
 		} else {

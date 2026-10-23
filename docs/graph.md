@@ -103,6 +103,23 @@ result, _ := g.Run(ctx, State{Input: "How do I reset my password?"})
 // Routes to "answer" node
 ```
 
+### Routers that call out
+
+When the routing decision itself needs a model or a service, use
+`AddConditionalEdgeCtx`. The router gets the run's context and can return
+an error, which fails the run like a node error (the node's output is not
+checkpointed, so a resumed run executes the node again):
+
+```go
+g.AddConditionalEdgeCtx("classify", func(ctx context.Context, s State) (string, error) {
+    a, err := decide.Ask(ctx, decider, "", s.Input, categoryQuestion)
+    if err != nil {
+        return "", err
+    }
+    return a.Choice, nil
+})
+```
+
 ## Loops (Iterative Refinement)
 
 ```go
