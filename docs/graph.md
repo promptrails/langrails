@@ -120,6 +120,9 @@ g.AddConditionalEdgeCtx("classify", func(ctx context.Context, s State) (string, 
 })
 ```
 
+`decide.GraphRouter` builds this router for you, with a confidence
+threshold and a fallback node; see [Decisions](decisions.md#graph-routing).
+
 ## Loops (Iterative Refinement)
 
 ```go

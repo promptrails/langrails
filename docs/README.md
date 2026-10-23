@@ -32,7 +32,7 @@ resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
 | **MCP** | Model Context Protocol client: HTTP and stdio transports, tools, resources, prompts |
 | **A2A** | Agent-to-Agent protocol client + server |
 | **Structured Output** | `Generate[T]` decodes into Go types; JSON schema + JSON mode across all providers |
-| **Decisions** | Decision models (OpenAI Decisions / GPT Luna, TypeSafe Jev and System One servers) answer yes/no, choice and score questions with probabilities |
+| **Decisions** | Decision models (OpenAI Decisions / GPT Luna, TypeSafe Jev and System One servers) answer yes/no, choice and score questions with probabilities; route requests to providers or graph nodes by answer |
 | **Vision / Multimodal** | Images, audio and documents (PDF) in messages |
 | **Prompt Templates** | Jinja-style `{{ variable }}` syntax |
 | **Memory** | Conversation history with token limits |

@@ -14,4 +14,8 @@
 //	    decide.Option{Value: "tech", Description: "Bugs and outages"},
 //	))
 //	fmt.Println(a.Choice, a.Confidence)
+//
+// Route turns a question into a langrails.Provider that sends each request
+// to the provider its answer picks, and GraphRouter does the same for a
+// graph's conditional edge.
 package decide

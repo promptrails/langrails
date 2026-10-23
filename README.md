@@ -49,7 +49,7 @@ go get github.com/promptrails/langrails
 - **MCP** — Model Context Protocol client: HTTP and stdio transports, tools, resources, prompts
 - **A2A** — Agent-to-Agent protocol client + server
 - **Structured output** — `Generate[T]` decodes into Go types; JSON schema + JSON mode across all providers
-- **Decisions** — Decision models (OpenAI Decisions / GPT Luna, TypeSafe Jev and System One servers) for yes/no, choice and score questions answered with probabilities; any chat model as a fallback
+- **Decisions** — Decision models (OpenAI Decisions / GPT Luna, TypeSafe Jev and System One servers) for yes/no, choice and score questions answered with probabilities; any chat model as a fallback; routing to providers or graph nodes by answer
 - **Vision / Multimodal** — Images, audio and documents (PDF) in messages
 - **Prompt templates** — Jinja-style `{{ variable }}` syntax
 - **Memory** — Conversation history with token limits

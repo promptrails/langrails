@@ -92,6 +92,53 @@ sev, _ := resp.Answer("severity")
 
 When a question depends on another's answer, send separate requests.
 
+## Routing
+
+The most common use of a decision model is in front of a slower one:
+answer the easy cases cheaply and send the hard or unclear ones on.
+
+### Provider routing
+
+`decide.Route` returns a `langrails.Provider` that asks a question about
+each request (by default, the text of the last user message) and sends
+the request to the target keyed by the answer's `Choice`. A target can
+also replace the model:
+
+```go
+p := decide.Route(d, "", decide.NewPredicate("hard",
+    "Does answering this need multi-step reasoning or expert knowledge?"),
+    map[string]decide.Target{
+        decide.No:  {Provider: openaiProvider, Model: "gpt-6-luna"},
+        decide.Yes: {Provider: anthropicProvider, Model: "claude-opus-5-5"},
+    },
+    decide.WithMinConfidence(0.8),
+    decide.WithFallback(decide.Target{Provider: anthropicProvider, Model: "claude-opus-5-5"}),
+)
+
+a := agent.New(p, agent.WithTools(...)) // drops in anywhere a Provider does
+```
+
+Answers that are refused, below `WithMinConfidence`, or have no target
+go to `WithFallback`; without one they fail with `decide.ErrNoRoute`.
+`WithInput` changes what text the question is about, and
+`WithOnDecision` sees every answer for logging and metrics. A decider
+error is returned as is.
+
+### Graph routing
+
+`decide.GraphRouter` is the same for a graph edge. It returns a
+`graph.RouterCtxFunc` for `AddConditionalEdgeCtx`; `routes` maps answers
+to nodes (with `nil` routes, the answer is the node name):
+
+```go
+g.AddConditionalEdgeCtx("intake", decide.GraphRouter(d, "", queueQuestion,
+    func(s Ticket) string { return s.Body },
+    map[string]string{"billing": "refund", "tech": "debug"},
+    decide.WithMinConfidence(0.7),
+    decide.WithFallbackNode("human"),
+))
+```
+
 ## Images
 
 `Request.Parts` adds text and image parts after `Input`. The OpenAI
