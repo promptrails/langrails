@@ -91,6 +91,7 @@ type runConfig[S any] struct {
 	threadID     string
 	hooks        Hooks[S]
 	resume       *resumeSlot
+	drain        *Drain
 }
 
 func (g *Graph[S]) buildConfig(opts ...Option[S]) *runConfig[S] {
@@ -248,6 +249,11 @@ type RunResult[S any] struct {
 	// Await). State is then the state going into the paused node; resume
 	// with Resume and WithResumeValue.
 	Interruption *Interruption
+
+	// Drained is true when the run stopped early because its Drain was
+	// requested (see WithDrain). State is the state after the last step,
+	// and Resume continues from the next node.
+	Drained bool
 }
 
 // Run executes the graph starting from the entry point with the given
@@ -405,6 +411,9 @@ func (g *Graph[S]) run(ctx context.Context, cfg *runConfig[S], state S, currentN
 			if err := saveCheckpoint(ctx, cfg, step, currentNode, state); err != nil {
 				return nil, err
 			}
+			if currentNode != END && cfg.drained() {
+				return drainedResult(result, state), nil
+			}
 			continue
 		}
 
@@ -441,6 +450,9 @@ func (g *Graph[S]) run(ctx context.Context, cfg *runConfig[S], state S, currentN
 			if err := saveCheckpoint(ctx, cfg, step, currentNode, state); err != nil {
 				return nil, err
 			}
+			if currentNode != END && cfg.drained() {
+				return drainedResult(result, state), nil
+			}
 			continue
 		}
 
@@ -460,7 +472,16 @@ func (g *Graph[S]) run(ctx context.Context, cfg *runConfig[S], state S, currentN
 		if err := saveCheckpoint(ctx, cfg, step, currentNode, state); err != nil {
 			return nil, err
 		}
+		if currentNode != END && cfg.drained() {
+			return drainedResult(result, state), nil
+		}
 	}
+}
+
+func drainedResult[S any](result *RunResult[S], state S) *RunResult[S] {
+	result.State = state
+	result.Drained = true
+	return result
 }
 
 // pause ends a run at an interrupting node: the node will run again on

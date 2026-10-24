@@ -59,6 +59,34 @@ result, err := g.Resume(ctx,
 Resuming a run that already reached `END` replays no nodes — it returns the
 persisted final state.
 
+## Graceful shutdown (drain)
+
+Cancelling the context stops a run mid-node. To stop cleanly instead — for
+a deploy or a scale-down — give the run a `Drain`. Once it is requested,
+the run finishes the node (or fan-out) it is executing, saves its
+checkpoint, and returns with `RunResult.Drained` set:
+
+```go
+drain := graph.NewDrain()
+go func() {
+    <-shutdown // e.g. SIGTERM
+    drain.Request()
+}()
+
+result, err := g.Run(ctx, initial,
+    graph.WithCheckpointer[State](cp),
+    graph.WithThreadID[State]("job-7"),
+    graph.WithDrain[State](drain),
+)
+if result.Drained {
+    // stopped between steps; another process can Resume "job-7" later
+}
+```
+
+One `Drain` can be shared by every run in the process. A run whose last
+step reaches `END` completes normally even if the drain was requested.
+Without a checkpointer a drained run cannot be resumed.
+
 ## Interrupts (human-in-the-loop)
 
 A node can **pause the run** until someone answers — approve a deployment,
