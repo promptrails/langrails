@@ -167,6 +167,35 @@ g.AddConditionalEdge("evaluate", func(s State) string {
 result, _ := g.Run(ctx, State{Draft: "Initial rough draft..."})
 ```
 
+## Timeouts, Retries and Error Handlers
+
+`AddNodeWithOptions` registers a node with per-node behavior:
+
+```go
+g.AddNodeWithOptions("fetch", fetchNode,
+    graph.WithNodeTimeout[State](10*time.Second),  // per attempt
+    graph.WithNodeRetry[State](2, time.Second),    // 2 retries, 1s then 2s backoff
+    graph.WithErrorHandler(func(ctx context.Context, s State, err error) (State, string, error) {
+        s.Error = err.Error()
+        return s, "apologize", nil // recover and reroute; "" follows the node's edges
+    }),
+)
+```
+
+- **Timeout** — each attempt's context is cancelled at the deadline and
+  the attempt fails with an error wrapping `graph.ErrNodeTimeout`. A node
+  that ignores its context keeps running in the background, but the run
+  moves on and its result is discarded.
+- **Retry** — a failed node runs again up to `n` more times with a
+  doubling backoff. Interrupts and a cancelled run are never retried.
+- **Error handler** — runs once retries are exhausted, with the state the
+  node was given and the error. It returns the state to continue with and
+  optionally the next node; returning an error fails the run. In a
+  fan-out branch only the recovered state is used.
+
+Hooks report each attempt separately. `AddNode` on the same name later
+replaces the node and drops its options.
+
 ## Execution History
 
 ```go

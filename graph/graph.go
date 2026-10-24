@@ -65,6 +65,7 @@ const defaultMaxSteps = 100
 // without interference.
 type Graph[S any] struct {
 	nodes            map[string]NodeFunc[S]
+	nodeConfigs      map[string]*nodeConfig[S]
 	edges            map[string]string
 	conditionalEdges map[string]RouterCtxFunc[S]
 	fanOuts          map[string]fanOut[S]
@@ -75,6 +76,7 @@ type Graph[S any] struct {
 func New[S any]() *Graph[S] {
 	return &Graph[S]{
 		nodes:            make(map[string]NodeFunc[S]),
+		nodeConfigs:      make(map[string]*nodeConfig[S]),
 		edges:            make(map[string]string),
 		conditionalEdges: make(map[string]RouterCtxFunc[S]),
 		fanOuts:          make(map[string]fanOut[S]),
@@ -172,6 +174,7 @@ func (c *runConfig[S]) callNode(ctx context.Context, name string, fn NodeFunc[S]
 // AddNode registers a node with the given name and function.
 func (g *Graph[S]) AddNode(name string, fn NodeFunc[S]) {
 	g.nodes[name] = fn
+	delete(g.nodeConfigs, name)
 }
 
 // SetEntryPoint sets the first node to execute.
@@ -376,12 +379,11 @@ func (g *Graph[S]) run(ctx context.Context, cfg *runConfig[S], state S, currentN
 			return nil, fmt.Errorf("graph: exceeded maximum steps (%d)", cfg.maxSteps)
 		}
 
-		fn, ok := g.nodes[currentNode]
-		if !ok {
+		if _, ok := g.nodes[currentNode]; !ok {
 			return nil, fmt.Errorf("graph: unknown node %q", currentNode)
 		}
 
-		newState, err := cfg.callNode(ctx, currentNode, fn, state)
+		newState, override, err := g.execNode(ctx, cfg, currentNode, state)
 		if ie, ok := asInterrupt(err); ok {
 			return g.pause(ctx, cfg, result, record, step, currentNode, state, ie, err)
 		}
@@ -396,6 +398,15 @@ func (g *Graph[S]) run(ctx context.Context, cfg *runConfig[S], state S, currentN
 			State: state,
 			Step:  step,
 		})
+
+		// An error handler's routing override replaces the node's edges.
+		if override != "" {
+			currentNode = override
+			if err := saveCheckpoint(ctx, cfg, step, currentNode, state); err != nil {
+				return nil, err
+			}
+			continue
+		}
 
 		// Fan-out edges take precedence: run branches concurrently, then
 		// reduce their results and continue at the join node.
@@ -539,16 +550,16 @@ func (g *Graph[S]) runBranches(ctx context.Context, cfg *runConfig[S], sends []S
 	var wg sync.WaitGroup
 	for i, snd := range sends {
 		wg.Add(1)
-		go func(i int, name string, fn NodeFunc[S], st S) {
+		go func(i int, name string, st S) {
 			defer wg.Done()
-			out, e := cfg.callNode(ctx, name, fn, st)
+			out, _, e := g.execNode(ctx, cfg, name, st)
 			if e != nil {
 				errs[i] = e
 				cancel()
 				return
 			}
 			results[i] = out
-		}(i, snd.Node, g.nodes[snd.Node], snd.State)
+		}(i, snd.Node, snd.State)
 	}
 	wg.Wait()
 
