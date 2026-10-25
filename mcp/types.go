@@ -37,6 +37,7 @@ type mcpTool struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
 	InputSchema map[string]interface{} `json:"inputSchema"`
+	Annotations ToolAnnotations        `json:"annotations"`
 }
 
 type toolListResult struct {

@@ -29,7 +29,7 @@ resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
 | **Agents** | Middleware-driven tool-calling loop with token streaming; built-in summarization, context editing, tool selection, call limits, model fallback, tool retry, PII redaction, human-in-the-loop |
 | **Chain** | Sequential multi-step prompt pipelines |
 | **Graph** | LangGraph-style stateful workflows: parallel fan-out, subgraphs, streaming, durable execution, human-in-the-loop interrupts, per-node timeouts, retries and error handlers, graceful drain |
-| **MCP** | Model Context Protocol client: HTTP and stdio transports, tools, resources, prompts |
+| **MCP** | Model Context Protocol client: HTTP and stdio transports, tools, resources, prompts, tool annotations |
 | **A2A** | Agent-to-Agent protocol client + server |
 | **Structured Output** | `Generate[T]` decodes into Go types; JSON schema + JSON mode across all providers |
 | **Decisions** | Decision models (OpenAI Decisions / GPT Luna, TypeSafe Jev and System One servers) answer yes/no, choice and score questions with probabilities; route requests to providers or graph nodes by answer |

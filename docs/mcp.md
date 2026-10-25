@@ -187,6 +187,32 @@ resp, err := provider.Complete(ctx, &langrails.CompletionRequest{
 Text content becomes `Content`, image content an image part, and embedded text
 resources are inlined as text.
 
+## Tool Annotations
+
+Servers can annotate tools with behavior hints. `Tools()` returns them, and
+the methods apply the spec's defaults for hints a server leaves out:
+
+| Method | Meaning | Default |
+|---|---|---|
+| `ReadOnly()` | Does not modify its environment | `false` |
+| `Destructive()` | May destroy or overwrite data (never for read-only tools) | `true` |
+| `Idempotent()` | Repeating a call has no further effect | `false` |
+| `OpenWorld()` | Reaches outside the server (web, third-party APIs) | `true` |
+
+The usual use is gating risky tools behind human approval:
+
+```go
+h := agent.NewHumanInLoop(client, approver,
+    agent.WithInterruptOn(client.DestructiveTools()...))
+
+a := agent.New(provider, agent.WithModel("gpt-4o"),
+    agent.WithTools(client.ToolDefinitions(), h))
+```
+
+`ToolNames(func(mcp.Tool) bool)` selects tools by any rule. Annotations are
+hints from the server, not guarantees — only rely on them for servers you
+trust.
+
 ## Refreshing Tools
 
 If the MCP server's tool list changes:
