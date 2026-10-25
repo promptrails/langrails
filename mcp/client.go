@@ -29,6 +29,9 @@ type transport interface {
 	close() error
 }
 
+// requestHandler answers a request the server sends to the client.
+type requestHandler func(ctx context.Context, method string, params json.RawMessage) (any, *jsonRPCError)
+
 // Client connects to an MCP server and provides tool discovery and execution.
 // It implements tools.Executor so it can be used directly with tools.RunLoop.
 //
@@ -135,7 +138,7 @@ func newClient(opts []Option) *Client {
 // (e.g., "http://localhost:8080/mcp").
 func NewClient(baseURL string, opts ...Option) (*Client, error) {
 	c := newClient(opts)
-	c.t = &httpTransport{url: baseURL, headers: c.headers, client: c.client}
+	c.t = &httpTransport{url: baseURL, headers: c.headers, client: c.client, handle: c.handleRequest}
 	if err := c.setup(); err != nil {
 		return nil, err
 	}
@@ -151,7 +154,7 @@ func NewClient(baseURL string, opts ...Option) (*Client, error) {
 // before the error is returned.
 func NewStdioClient(command string, args []string, opts ...Option) (*Client, error) {
 	c := newClient(opts)
-	t, err := startStdio(command, args, c.env, c.dir, c.stderr)
+	t, err := startStdio(command, args, c.env, c.dir, c.stderr, c.handleRequest)
 	if err != nil {
 		return nil, fmt.Errorf("mcp: %w", err)
 	}
@@ -244,6 +247,15 @@ func (c *Client) RefreshTools() error {
 // process.
 func (c *Client) Close() error {
 	return c.t.close()
+}
+
+// handleRequest answers requests from the server. ping is answered; the
+// rest are refused, since the client offers no capabilities for them.
+func (c *Client) handleRequest(_ context.Context, method string, _ json.RawMessage) (any, *jsonRPCError) {
+	if method == "ping" {
+		return map[string]any{}, nil
+	}
+	return nil, &jsonRPCError{Code: -32601, Message: "method not found"}
 }
 
 func (c *Client) initialize(ctx context.Context) error {

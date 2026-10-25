@@ -22,6 +22,8 @@ defer client.Close()
 
 The client automatically initializes the MCP session and discovers available tools on creation (following pagination). If the server assigns a streamable-HTTP session (`Mcp-Session-Id`), it is sent on every later request.
 
+Servers may answer a request with plain JSON or with an SSE stream; both work. Over a stream the server can send requests of its own before the response (such as a ping), which the client answers as they arrive.
+
 ## Local Servers (stdio)
 
 Most published MCP servers run as a local process that speaks JSON-RPC over

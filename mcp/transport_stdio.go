@@ -36,10 +36,12 @@ type stdioTransport struct {
 	done    chan struct{} // closed when the reader stops
 	err     error         // why the reader stopped
 
+	handle requestHandler
+
 	closeOnce sync.Once
 }
 
-func startStdio(command string, args, env []string, dir string, stderr io.Writer) (*stdioTransport, error) {
+func startStdio(command string, args, env []string, dir string, stderr io.Writer, handle requestHandler) (*stdioTransport, error) {
 	cmd := exec.Command(command, args...) // #nosec G204 -- running the caller-chosen MCP server is the purpose of NewStdioClient
 	cmd.Dir = dir
 	if len(env) > 0 {
@@ -64,6 +66,7 @@ func startStdio(command string, args, env []string, dir string, stderr io.Writer
 		stdin:   stdin,
 		pending: map[int64]chan jsonRPCResponse{},
 		done:    make(chan struct{}),
+		handle:  handle,
 	}
 	go t.read(stdout)
 	return t, nil
@@ -74,8 +77,20 @@ func startStdio(command string, args, env []string, dir string, stderr io.Writer
 type incoming struct {
 	ID     json.RawMessage `json:"id,omitempty"`
 	Method string          `json:"method,omitempty"`
+	Params json.RawMessage `json:"params,omitempty"`
 	Result json.RawMessage `json:"result,omitempty"`
 	Error  *jsonRPCError   `json:"error,omitempty"`
+}
+
+// reply builds the response to a server request.
+func reply(id json.RawMessage, result any, rpcErr *jsonRPCError) map[string]any {
+	resp := map[string]any{"jsonrpc": "2.0", "id": id}
+	if rpcErr != nil {
+		resp["error"] = rpcErr
+	} else {
+		resp["result"] = result
+	}
+	return resp
 }
 
 func (t *stdioTransport) read(stdout io.Reader) {
@@ -113,15 +128,13 @@ func (t *stdioTransport) dispatch(line []byte) {
 
 	switch {
 	case msg.Method != "" && len(msg.ID) > 0:
-		// A request from the server. Answer ping; refuse the rest, since
-		// this client offers no capabilities (sampling, roots, ...).
-		resp := map[string]interface{}{"jsonrpc": "2.0", "id": msg.ID}
-		if msg.Method == "ping" {
-			resp["result"] = map[string]interface{}{}
-		} else {
-			resp["error"] = jsonRPCError{Code: -32601, Message: "method not found"}
-		}
-		_ = t.write(resp)
+		// A request from the server. Answer it off the reader goroutine:
+		// a handler may wait on a human, and responses to our own calls
+		// must keep flowing meanwhile.
+		go func() {
+			result, rpcErr := t.handle(context.Background(), msg.Method, msg.Params)
+			_ = t.write(reply(msg.ID, result, rpcErr))
+		}()
 	case msg.Method != "":
 		// Notification (progress, logging, list_changed); nothing to do.
 	default:
