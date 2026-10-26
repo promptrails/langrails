@@ -70,6 +70,54 @@ mcp.NewClient(url, mcp.WithAPIKey("key"))
 mcp.NewClient(url, mcp.WithHeader("X-Custom-Auth", "value"))
 ```
 
+### OAuth
+
+Servers that follow the MCP authorization spec use OAuth 2.1. The
+`mcp/oauth` package implements the client side: it discovers the
+authorization server (protected resource metadata, then authorization
+server metadata), registers the client dynamically when you have no
+client ID, runs the authorization code flow with PKCE, sends the server
+URL as the resource indicator, and refreshes tokens:
+
+```go
+import "github.com/promptrails/langrails/mcp/oauth"
+
+const redirect = "http://127.0.0.1:8765/callback"
+
+ts := oauth.New("https://mcp.example.com/mcp", oauth.Config{
+    RedirectURL: redirect,
+    Scopes:      []string{"files:read"},
+    // Opens the browser (or prints the URL), waits for the redirect on
+    // the loopback address and checks its state.
+    Authorize: oauth.Loopback(redirect, func(authURL string) error {
+        fmt.Println("Open:", authURL)
+        return nil
+    }),
+    Store: myStore, // persist the client and tokens between runs
+})
+
+client, err := mcp.NewClient("https://mcp.example.com/mcp", mcp.WithTokenSource(ts))
+```
+
+For machine-to-machine access with a pre-registered client, set
+`ClientID` and `ClientSecret` and leave `Authorize` nil; the client
+credentials grant is used instead. A server-side app can supply its own
+`Authorize` that redirects the user and returns the code from its
+callback handler.
+
+- **Tokens** — kept until shortly before they expire, then refreshed; if
+  the refresh token is rejected, the flow runs again. When the server
+  answers 401, the client drops the token and retries the request once.
+- **Store** — `oauth.MemoryStore` is the default. Implement
+  `oauth.Store` (`Load` / `Save` of a `Session`) to keep the registered
+  client and tokens across restarts; it holds credentials, so keep it
+  private.
+- **Without metadata** — when the server publishes no metadata, its
+  origin's `/authorize`, `/token` and `/register` are used.
+
+`mcp.WithTokenSource` accepts any `Token(ctx) (string, error)`
+implementation, so you can plug in tokens from elsewhere too.
+
 ## Using MCP Tools with LLM
 
 ```go

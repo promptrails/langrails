@@ -46,7 +46,7 @@ go get github.com/promptrails/langrails
 - **Agents** — Middleware-driven tool-calling loop with token streaming; built-in summarization, context editing, tool selection, call limits, model fallback, tool retry, PII redaction, human-in-the-loop
 - **Chain** — Sequential multi-step prompt pipelines
 - **Graph** — LangGraph-style stateful workflows: parallel fan-out, subgraphs, streaming, durable execution, human-in-the-loop interrupts, per-node timeouts, retries and error handlers, graceful drain
-- **MCP** — Model Context Protocol client: HTTP and stdio transports, tools, resources, prompts, tool annotations
+- **MCP** — Model Context Protocol client: HTTP (JSON or SSE) and stdio transports, OAuth 2.1, tools, resources, prompts, tool annotations
 - **A2A** — Agent-to-Agent protocol client + server
 - **Structured output** — `Generate[T]` decodes into Go types; JSON schema + JSON mode across all providers
 - **Decisions** — Decision models (OpenAI Decisions / GPT Luna, TypeSafe Jev and System One servers) for yes/no, choice and score questions answered with probabilities; any chat model as a fallback; routing to providers or graph nodes by answer
@@ -78,7 +78,7 @@ go get github.com/promptrails/langrails
 | [Chain](docs/chain.md) | Sequential prompt pipelines |
 | [Graph](docs/graph.md) | Stateful workflows, fan-out, subgraphs, streaming |
 | [Durable Execution](docs/durable-execution.md) | Checkpointing, resume, graceful drain, interrupts, time travel |
-| [MCP](docs/mcp.md) | MCP client: HTTP/stdio, tools, resources, prompts |
+| [MCP](docs/mcp.md) | MCP client: HTTP/stdio, OAuth, tools, resources, prompts |
 | [A2A](docs/a2a.md) | Agent-to-Agent protocol client + server |
 | [Retry, Fallback & Rate Limiting](docs/retry-fallback.md) | Retries, fallbacks, rate limiting |
 | [Observability](docs/observability.md) | Provider, agent and graph hooks; tracing |

@@ -27,6 +27,7 @@ type httpTransport struct {
 	url     string
 	headers map[string]string
 	client  *http.Client
+	tokens  TokenSource
 	handle  requestHandler
 
 	nextID atomic.Int64
@@ -142,7 +143,23 @@ func (t *httpTransport) send(ctx context.Context, msg any) error {
 	return nil
 }
 
+// post sends body, retrying once with a fresh token when an OAuth token
+// source's token is rejected.
 func (t *httpTransport) post(ctx context.Context, body []byte) (*http.Response, error) {
+	resp, err := t.postOnce(ctx, body)
+	if err != nil || resp.StatusCode != http.StatusUnauthorized {
+		return resp, err
+	}
+	inv, ok := t.tokens.(interface{ InvalidateToken() })
+	if !ok {
+		return resp, nil
+	}
+	resp.Body.Close()
+	inv.InvalidateToken()
+	return t.postOnce(ctx, body)
+}
+
+func (t *httpTransport) postOnce(ctx context.Context, body []byte) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, t.url, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -152,6 +169,13 @@ func (t *httpTransport) post(ctx context.Context, body []byte) (*http.Response, 
 	req.Header.Set("Accept", "application/json, text/event-stream")
 	for k, v := range t.headers {
 		req.Header.Set(k, v)
+	}
+	if t.tokens != nil {
+		token, err := t.tokens.Token(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("get token: %w", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	t.mu.Lock()
 	if t.sessionID != "" {

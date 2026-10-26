@@ -1,7 +1,10 @@
 package mcp
 
 import (
+	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"slices"
 	"testing"
 )
@@ -36,5 +39,38 @@ func TestToolAnnotations(t *testing.T) {
 	}
 	if got := c.ToolNames(func(t Tool) bool { return t.Annotations.ReadOnly() }); !slices.Equal(got, []string{"read_file"}) {
 		t.Errorf("read-only = %v", got)
+	}
+}
+
+type fakeTokens struct {
+	tokens      []string
+	invalidated int
+}
+
+func (f *fakeTokens) Token(context.Context) (string, error) { return f.tokens[f.invalidated], nil }
+func (f *fakeTokens) InvalidateToken()                      { f.invalidated++ }
+
+func TestTokenSourceRetriesOn401(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer fresh" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		var req jsonRPCRequest
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if req.ID == 0 {
+			w.WriteHeader(http.StatusAccepted)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": map[string]any{"tools": []any{}}})
+	}))
+	defer srv.Close()
+
+	ts := &fakeTokens{tokens: []string{"stale", "fresh"}}
+	if _, err := NewClient(srv.URL, WithBearerToken("ignored"), WithTokenSource(ts)); err != nil {
+		t.Fatal(err)
+	}
+	if ts.invalidated != 1 {
+		t.Errorf("invalidated %d times", ts.invalidated)
 	}
 }

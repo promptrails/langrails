@@ -43,6 +43,7 @@ type Client struct {
 	// HTTP settings.
 	headers map[string]string
 	client  *http.Client
+	tokens  TokenSource
 
 	// Stdio settings.
 	env    []string
@@ -64,6 +65,22 @@ type Option func(*Client)
 func WithBearerToken(token string) Option {
 	return func(c *Client) {
 		c.headers["Authorization"] = "Bearer " + token
+	}
+}
+
+// TokenSource supplies the bearer token for each request, for servers
+// that use OAuth (see the mcp/oauth package). If it also has an
+// InvalidateToken method, a request the server rejects with 401 drops the
+// token and is retried once with a new one.
+type TokenSource interface {
+	Token(ctx context.Context) (string, error)
+}
+
+// WithTokenSource authenticates every request with a token from ts (HTTP).
+// It takes precedence over WithBearerToken.
+func WithTokenSource(ts TokenSource) Option {
+	return func(c *Client) {
+		c.tokens = ts
 	}
 }
 
@@ -138,7 +155,7 @@ func newClient(opts []Option) *Client {
 // (e.g., "http://localhost:8080/mcp").
 func NewClient(baseURL string, opts ...Option) (*Client, error) {
 	c := newClient(opts)
-	c.t = &httpTransport{url: baseURL, headers: c.headers, client: c.client, handle: c.handleRequest}
+	c.t = &httpTransport{url: baseURL, headers: c.headers, client: c.client, tokens: c.tokens, handle: c.handleRequest}
 	if err := c.setup(); err != nil {
 		return nil, err
 	}
