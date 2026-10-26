@@ -184,3 +184,39 @@ func TestInterrupt_Stream(t *testing.T) {
 		t.Errorf("last event = %+v", last)
 	}
 }
+
+func TestResumeValue(t *testing.T) {
+	type answers map[string]bool
+	var seen []answers
+	g := New[testState]()
+	g.AddNode("ask", func(ctx context.Context, s testState) (testState, error) {
+		for _, q := range []string{"a", "b"} {
+			got, _ := ResumeValue[answers](ctx)
+			if _, ok := got[q]; !ok {
+				return s, Interrupt(q)
+			}
+			seen = append(seen, got)
+		}
+		return s, nil
+	})
+	g.SetEntryPoint("ask")
+	g.AddEdge("ask", END)
+
+	cp := NewMemoryCheckpointer[testState]()
+	opts := []Option[testState]{WithCheckpointer[testState](cp), WithThreadID[testState]("t")}
+	res, err := g.Run(context.Background(), testState{}, opts...)
+	if err != nil || res.Interruption == nil || res.Interruption.Payload != "a" {
+		t.Fatalf("res = %+v, err = %v", res, err)
+	}
+	res, err = g.Resume(context.Background(), append(opts, WithResumeValue[testState](answers{"a": true}))...)
+	if err != nil || res.Interruption == nil || res.Interruption.Payload != "b" {
+		t.Fatalf("second pause: res = %+v, err = %v", res, err)
+	}
+	res, err = g.Resume(context.Background(), append(opts, WithResumeValue[testState](answers{"a": true, "b": false}))...)
+	if err != nil || res.Interruption != nil || len(seen) != 3 {
+		t.Fatalf("done: res = %+v, err = %v, seen = %v", res, err, seen)
+	}
+	if _, ok := ResumeValue[answers](context.Background()); ok {
+		t.Error("ResumeValue outside a resumed run")
+	}
+}

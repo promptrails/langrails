@@ -148,6 +148,15 @@ Rules of thumb:
   ends with a `StepEvent` carrying it. If your checkpointer serializes state,
   make the payload serializable too.
 
+### Several questions in one node
+
+`Await` hands the resume value to the first caller only, so a second `Await`
+in the same node pauses again. When a node asks several questions — a batch
+of approvals, say — read the value with `graph.ResumeValue[T](ctx)` instead:
+it does not consume it, so one value (a map keyed by question) can answer
+them all. Return `graph.Interrupt(payload)` for the first question it does
+not answer yet, and resume with the answers so far plus the new one.
+
 ## Time travel
 
 `History` returns every checkpoint for a thread in save order, so you can

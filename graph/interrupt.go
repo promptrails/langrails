@@ -84,6 +84,24 @@ func Await[T any](ctx context.Context, payload any) (T, error) {
 	return zero, Interrupt(payload)
 }
 
+// ResumeValue returns the value the run was resumed with, if it is a T,
+// without consuming it. Await hands the value to the first caller only;
+// ResumeValue lets code that asks several questions in one node (a batch
+// of approvals, say) read a resume value that answers all of them, keyed
+// however it likes. When it finds no answer it should return an
+// Interrupt.
+func ResumeValue[T any](ctx context.Context) (T, bool) {
+	var zero T
+	slot, ok := ctx.Value(resumeKey{}).(*resumeSlot)
+	if !ok {
+		return zero, false
+	}
+	slot.mu.Lock()
+	defer slot.mu.Unlock()
+	v, ok := slot.value.(T)
+	return v, ok
+}
+
 // WithResumeValue supplies the answer to a pending interruption when
 // resuming. The interrupted node's Await returns it.
 func WithResumeValue[S any](v any) Option[S] {
