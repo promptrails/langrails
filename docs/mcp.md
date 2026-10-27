@@ -22,7 +22,7 @@ defer client.Close()
 
 The client automatically initializes the MCP session and discovers available tools on creation (following pagination). If the server assigns a streamable-HTTP session (`Mcp-Session-Id`), it is sent on every later request.
 
-Servers may answer a request with plain JSON or with an SSE stream; both work. Over a stream the server can send requests of its own before the response (such as a ping), which the client answers as they arrive.
+Servers may answer a request with plain JSON or with an SSE stream; both work. Over a stream the server can send requests of its own before the response (a ping, an [elicitation](#elicitation)), which the client answers as they arrive.
 
 ## Local Servers (stdio)
 
@@ -262,6 +262,47 @@ a := agent.New(provider, agent.WithModel("gpt-4o"),
 `ToolNames(func(mcp.Tool) bool)` selects tools by any rule. Annotations are
 hints from the server, not guarantees — only rely on them for servers you
 trust.
+
+## Elicitation
+
+A server can ask the user for input in the middle of a tool call — a
+confirmation, a missing parameter, a choice. Give the client a handler to
+answer; the client then announces the elicitation capability:
+
+```go
+client, _ := mcp.NewClient(url, mcp.WithElicitation(
+    func(ctx context.Context, req mcp.ElicitRequest) (mcp.ElicitResult, error) {
+        // req.Message explains the ask; req.Schema is a flat object schema.
+        input, ok := promptUser(req.Message, req.Schema)
+        if !ok {
+            return mcp.ElicitResult{Action: mcp.ElicitDecline}, nil
+        }
+        return mcp.AcceptElicitation(input), nil
+    },
+))
+```
+
+The handler runs while the server waits, so it can block on a human. If it
+returns an error, the server's request is cancelled and the tool call
+returns that error.
+
+**In a graph.** `mcp.AwaitElicitation()` pauses a checkpointed graph
+instead of blocking. The interrupt payload is an `mcp.PendingElicitation`;
+resume with the answers so far plus the new one:
+
+```go
+client, _ := mcp.NewClient(url, mcp.WithElicitation(mcp.AwaitElicitation()))
+// ... the graph's node calls a tool (directly or through an agent) ...
+
+p := res.Interruption.Payload.(mcp.PendingElicitation)
+res, err = g.Resume(ctx, append(opts, graph.WithResumeValue[State](
+    p.Answered.With(p, mcp.AcceptElicitation(map[string]any{"env": "prod"}))))...)
+```
+
+The node re-runs on resume and calls the tool again; when the server asks
+the same question it gets the stored answer. An agent running the tool ends
+its run on the pause, so the graph can stop. Over stdio, an error from the
+handler can only be tied to its tool call when one call is in flight.
 
 ## Refreshing Tools
 

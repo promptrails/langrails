@@ -52,6 +52,9 @@ type Client struct {
 
 	setupTimeout time.Duration
 
+	elicit     ElicitationHandler
+	elicitErrs elicitErrs
+
 	mu    sync.RWMutex
 	tools []mcpTool
 }
@@ -219,17 +222,23 @@ func (c *Client) ToolDefinitions() []langrails.ToolDefinition {
 //
 // The text content of the result is returned (multiple text blocks are
 // joined with newlines). A result the server marks as an error (isError)
-// is returned as an error carrying that text.
+// is returned as an error carrying that text. When an elicitation handler
+// failed during the call, its error is returned instead.
 func (c *Client) Execute(ctx context.Context, name string, arguments string) (string, error) {
 	var args map[string]interface{}
 	if err := json.Unmarshal([]byte(arguments), &args); err != nil {
 		args = map[string]interface{}{"input": arguments}
 	}
 
+	ctx, slot := c.elicitErrs.begin(ctx)
+	defer c.elicitErrs.end(slot)
 	resp, err := c.t.call(ctx, "tools/call", map[string]interface{}{
 		"name":      name,
 		"arguments": args,
 	})
+	if eerr := slot.get(); eerr != nil {
+		return "", elicitationError(name, eerr)
+	}
 	if err != nil {
 		return "", fmt.Errorf("mcp: tool call %q failed: %w", name, err)
 	}
@@ -266,19 +275,27 @@ func (c *Client) Close() error {
 	return c.t.close()
 }
 
-// handleRequest answers requests from the server. ping is answered; the
-// rest are refused, since the client offers no capabilities for them.
-func (c *Client) handleRequest(_ context.Context, method string, _ json.RawMessage) (any, *jsonRPCError) {
-	if method == "ping" {
+// handleRequest answers requests from the server: ping, and elicitations
+// when a handler is set. The rest are refused, since the client offers no
+// capabilities for them.
+func (c *Client) handleRequest(ctx context.Context, method string, params json.RawMessage) (any, *jsonRPCError) {
+	switch {
+	case method == "ping":
 		return map[string]any{}, nil
+	case method == "elicitation/create" && c.elicit != nil:
+		return c.handleElicit(ctx, params)
 	}
 	return nil, &jsonRPCError{Code: -32601, Message: "method not found"}
 }
 
 func (c *Client) initialize(ctx context.Context) error {
+	capabilities := map[string]interface{}{}
+	if c.elicit != nil {
+		capabilities["elicitation"] = map[string]interface{}{}
+	}
 	_, err := c.t.call(ctx, "initialize", map[string]interface{}{
 		"protocolVersion": protocolVersion,
-		"capabilities":    map[string]interface{}{},
+		"capabilities":    capabilities,
 		"clientInfo": map[string]interface{}{
 			"name":    "langrails",
 			"version": "1.0.0",
