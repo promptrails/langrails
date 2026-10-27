@@ -186,6 +186,9 @@ func (a *Agent) run(ctx context.Context, messages []langrails.Message, emit func
 				call := tc
 				emit(Event{Type: EventToolResult, Iteration: iteration, ToolCall: &call, Content: out, ToolError: execErr})
 			}
+			if aborts(execErr) {
+				return nil, fmt.Errorf("agent: tool %q (iteration %d): %w", tc.Name, iteration, execErr)
+			}
 			if execErr != nil {
 				out = fmt.Sprintf(`{"error": %q}`, execErr.Error())
 			}

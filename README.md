@@ -43,7 +43,7 @@ go get github.com/promptrails/langrails
 - **Reasoning** — Provider-agnostic `ReasoningEffort` (minimal/low/medium/high), reasoning text + token accounting
 - **Web search & citations** — Provider-native search (`ServerTools`) with unified `Citations` in the response
 - **Caching** — Provider prompt caching (`CacheControl` + cached-token reporting) and a client-side response cache
-- **Agents** — Middleware-driven tool-calling loop with token streaming; built-in summarization, context editing, tool selection, call limits, model fallback, tool retry, PII redaction, human-in-the-loop
+- **Agents** — Middleware-driven tool-calling loop with token streaming; built-in summarization, context editing, tool selection, call limits, model fallback, tool retry, PII redaction, human-in-the-loop (approve, edit or reject; durable approvals in graphs)
 - **Chain** — Sequential multi-step prompt pipelines
 - **Graph** — LangGraph-style stateful workflows: parallel fan-out, subgraphs, streaming, durable execution, human-in-the-loop interrupts, per-node timeouts, retries and error handlers, graceful drain
 - **MCP** — Model Context Protocol client: HTTP (JSON or SSE) and stdio transports, OAuth 2.1, tools, resources, prompts, tool annotations

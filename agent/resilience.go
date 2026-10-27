@@ -9,7 +9,8 @@ import (
 )
 
 // ToolRetry retries failed tool executions with exponential backoff. Only
-// the final error reaches the model.
+// the final error reaches the model. Errors that abort the run (Abort,
+// graph interrupts) are never retried.
 type ToolRetry struct {
 	BaseMiddleware
 	maxRetries int
@@ -61,7 +62,7 @@ func (r *ToolRetry) WrapToolCall(next ToolFunc) ToolFunc {
 		}
 		delay := r.baseDelay
 		for attempt := 0; err != nil && attempt < r.maxRetries; attempt++ {
-			if r.retryable != nil && !r.retryable(err) {
+			if aborts(err) || (r.retryable != nil && !r.retryable(err)) {
 				break
 			}
 			timer := time.NewTimer(delay)

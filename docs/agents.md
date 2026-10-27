@@ -346,11 +346,57 @@ a := agent.New(provider,
 ```
 
 By default every tool requires approval; `WithInterruptOn` narrows that to a
-named subset. The approver may **block** while waiting for a human and may
-return an **error** to abort the run.
+named subset (for MCP servers, `client.DestructiveTools()` is a good start).
+The approver may **block** while waiting for a human; an **error** from it
+ends the run.
+
+**Editing a call.** Besides approving or rejecting, a reviewer can fix the
+call's arguments: ``agent.Edit(`{"to": "team@example.com"}`)`` runs the same tool
+with the new arguments. Pass `WithToolSchemas(defs)` to check edits against
+the tool's parameter schema first; an edit that does not match ends the run
+with an error wrapping `agent.ErrInvalidEdit` instead of reaching the tool.
+`agent.ValidateArguments(schema, args)` runs the same check, so a UI can
+reject a bad edit before submitting it.
+
+**Ending a run from a tool.** Tool errors normally go back to the model as
+the tool result. Return `agent.Abort(err)` from an executor or a
+`ToolWrapper` to end the run instead; `ToolRetry` never retries it.
 
 **Durable pause and resume.** `HumanInLoop` blocks while it waits. To pause
-across a process restart — e.g. a multi-day approval — put the decision in a
-graph node with `graph.Await` and enable a checkpointer: the run stops, is saved,
-and continues when you `Resume` it with the answer. See
+across a process restart — e.g. a multi-day approval — run the agent inside a
+graph node with a checkpointer and use `agent.AwaitApproval` as the approver.
+Instead of blocking it pauses the graph, with an `agent.ApprovalRequest`
+(the call, the tool's schema, and the decisions so far) as the interrupt
+payload:
+
+```go
+cached := langrails.WithCache(provider, langrails.NewMemoryCache(100, time.Hour))
+gate := agent.NewHumanInLoop(executor, agent.AwaitApproval(defs),
+    agent.WithInterruptOn("send_email"), agent.WithToolSchemas(defs))
+a := agent.New(cached, agent.WithModel("gpt-4o"), agent.WithTools(defs, gate))
+
+g.AddNode("agent", func(ctx context.Context, s State) (State, error) {
+    res, err := a.Run(ctx, s.Input)
+    if err != nil {
+        return s, err // an interrupt pauses the graph
+    }
+    s.Output = res.Response.Content
+    return s, nil
+})
+
+res, _ := g.Run(ctx, State{Input: "email the report"}, opts...)
+for res.Interruption != nil {
+    req := res.Interruption.Payload.(agent.ApprovalRequest)
+    decision := askReviewer(req) // agent.Approve(), agent.Reject(...), agent.Edit(...)
+    res, _ = g.Resume(ctx, append(opts,
+        graph.WithResumeValue[State](req.Decided.With(req, decision)))...)
+}
+```
+
+Each call is answered separately, and the decisions accumulate in the
+resume value. On resume the node runs again, so the agent replays its run
+and already-decided calls go straight through. Keep the replay identical by
+caching model responses (as above), and note that tools that ran before the
+pause **run again** in the replay: use this for reads and idempotent
+writes, or block in the approver when a repeat would hurt. See
 [Interrupts](durable-execution.md#interrupts-human-in-the-loop).

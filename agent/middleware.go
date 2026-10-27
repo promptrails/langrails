@@ -60,7 +60,8 @@ type ToolFunc func(ctx context.Context, call langrails.ToolCall) (string, error)
 // outermost. Use it to log, time, retry, or short-circuit tool calls.
 //
 // An error returned from the chain is not fatal: the agent sends it to the
-// model as the tool result, as it does for executor errors.
+// model as the tool result, as it does for executor errors. Wrap it with
+// Abort to end the run instead.
 type ToolWrapper interface {
 	WrapToolCall(next ToolFunc) ToolFunc
 }
