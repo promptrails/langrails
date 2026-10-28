@@ -365,13 +365,24 @@ func TestProvider_Stream_ToolCalls(t *testing.T) {
 	}
 
 	var toolCalls []langrails.ToolCall
+	var deltas []langrails.ToolCallDelta
 	for event := range ch {
 		if event.Type == langrails.EventToolCall && event.ToolCall != nil {
 			toolCalls = append(toolCalls, *event.ToolCall)
 		}
+		if event.Type == langrails.EventToolCallDelta {
+			if len(toolCalls) > 0 {
+				t.Error("delta after the complete tool call")
+			}
+			deltas = append(deltas, *event.ToolCallDelta)
+		}
 	}
 	if len(toolCalls) != 1 {
 		t.Fatalf("expected 1 tool call, got %d", len(toolCalls))
+	}
+	if len(deltas) != 3 || deltas[0].ID != "call_1" || deltas[0].Name != "get_weather" ||
+		deltas[1].Arguments+deltas[2].Arguments != `{"city":"Istanbul"}` {
+		t.Errorf("deltas = %+v", deltas)
 	}
 	if toolCalls[0].Name != "get_weather" {
 		t.Errorf("expected 'get_weather', got %q", toolCalls[0].Name)

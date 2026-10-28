@@ -210,10 +210,18 @@ func TestProvider_Stream_ToolCall(t *testing.T) {
 	}
 
 	var tc *langrails.ToolCall
+	var deltas []langrails.ToolCallDelta
 	for ev := range ch {
 		if ev.Type == langrails.EventToolCall {
 			tc = ev.ToolCall
 		}
+		if ev.Type == langrails.EventToolCallDelta {
+			deltas = append(deltas, *ev.ToolCallDelta)
+		}
+	}
+	if len(deltas) != 3 || deltas[0].Name != "lookup" || deltas[0].ID != "t1" ||
+		deltas[1].Arguments+deltas[2].Arguments != `{"q":42}` || deltas[2].Index != 0 {
+		t.Errorf("deltas = %+v", deltas)
 	}
 	if tc == nil {
 		t.Fatal("no tool call event")

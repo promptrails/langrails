@@ -194,6 +194,7 @@ func readStream(ctx context.Context, body io.ReadCloser, ch chan<- langrails.Str
 
 	type pendingTool struct {
 		id, name string
+		index    int // position among the response's tool calls
 		input    strings.Builder
 	}
 	pending := map[int]*pendingTool{}
@@ -233,8 +234,13 @@ func readStream(ctx context.Context, body io.ReadCloser, ch chan<- langrails.Str
 				continue
 			}
 			if ev.Start.ToolUse != nil {
-				pending[ev.ContentBlockIndex] = &pendingTool{id: ev.Start.ToolUse.ToolUseID, name: ev.Start.ToolUse.Name}
+				pending[ev.ContentBlockIndex] = &pendingTool{
+					id: ev.Start.ToolUse.ToolUseID, name: ev.Start.ToolUse.Name, index: len(order),
+				}
 				order = append(order, ev.ContentBlockIndex)
+				ch <- langrails.StreamEvent{Type: langrails.EventToolCallDelta, ToolCallDelta: &langrails.ToolCallDelta{
+					Index: len(order) - 1, ID: ev.Start.ToolUse.ToolUseID, Name: ev.Start.ToolUse.Name,
+				}}
 			}
 
 		case "contentBlockDelta":
@@ -251,6 +257,11 @@ func readStream(ctx context.Context, body io.ReadCloser, ch chan<- langrails.Str
 			if ev.Delta.ToolUse != nil {
 				if pt, ok := pending[ev.ContentBlockIndex]; ok {
 					pt.input.WriteString(ev.Delta.ToolUse.Input)
+					if ev.Delta.ToolUse.Input != "" {
+						ch <- langrails.StreamEvent{Type: langrails.EventToolCallDelta, ToolCallDelta: &langrails.ToolCallDelta{
+							Index: pt.index, Arguments: ev.Delta.ToolUse.Input,
+						}}
+					}
 				}
 			}
 

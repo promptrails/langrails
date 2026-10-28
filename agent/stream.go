@@ -19,6 +19,10 @@ const (
 	// EventToolCall reports a tool call the agent is about to execute.
 	EventToolCall EventType = "tool_call"
 
+	// EventToolCallDelta is a fragment of a tool call while the model is
+	// still writing it (ToolCallDelta is set), before the call is complete.
+	EventToolCallDelta EventType = "tool_call_delta"
+
 	// EventToolResult reports a finished tool call: Content holds the
 	// result, ToolError the error if it failed.
 	EventToolResult EventType = "tool_result"
@@ -46,6 +50,9 @@ type Event struct {
 
 	// ToolCall is the call being made (EventToolCall, EventToolResult).
 	ToolCall *langrails.ToolCall
+
+	// ToolCallDelta is the call fragment (EventToolCallDelta).
+	ToolCallDelta *langrails.ToolCallDelta
 
 	// ToolError is the tool's error (EventToolResult), sent to the model as
 	// its result.

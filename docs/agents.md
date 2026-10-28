@@ -61,6 +61,7 @@ for ev := range a.Stream(ctx, "What's the weather in Istanbul?") {
 |-------|--------|
 | `EventContent` | `Content` — a text chunk |
 | `EventReasoning` | `Reasoning` — a reasoning chunk |
+| `EventToolCallDelta` | `ToolCallDelta` — a fragment of a tool call the model is still writing |
 | `EventToolCall` | `ToolCall` — about to execute |
 | `EventToolResult` | `ToolCall`, `Content` (result), `ToolError` |
 | `EventDone` | `Result` — same as `Run` returns; always the last event |

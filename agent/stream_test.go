@@ -135,3 +135,28 @@ func TestAgent_StreamCancelledReader(t *testing.T) {
 	for range ch {
 	} // must terminate
 }
+
+func TestAgent_StreamToolCallDeltas(t *testing.T) {
+	p := &streamProvider{scripts: [][]langrails.StreamEvent{
+		{
+			{Type: langrails.EventToolCallDelta, ToolCallDelta: &langrails.ToolCallDelta{ID: "c1", Name: "weather"}},
+			{Type: langrails.EventToolCallDelta, ToolCallDelta: &langrails.ToolCallDelta{Arguments: `{"city":"Ankara"}`}},
+			{Type: langrails.EventToolCall, ToolCall: &langrails.ToolCall{ID: "c1", Name: "weather", Arguments: `{"city":"Ankara"}`}},
+			{Type: langrails.EventDone},
+		},
+		{{Type: langrails.EventContent, Content: "sunny"}, {Type: langrails.EventDone}},
+	}}
+	exec := tools.NewMap(map[string]tools.Func{
+		"weather": func(context.Context, string) (string, error) { return "clear", nil },
+	})
+	a := New(p, WithModel("m"), WithTools(nil, exec))
+	var deltas []string
+	for _, ev := range collect(a.Stream(context.Background(), "weather?")) {
+		if ev.Type == EventToolCallDelta {
+			deltas = append(deltas, ev.ToolCallDelta.Name+ev.ToolCallDelta.Arguments)
+		}
+	}
+	if strings.Join(deltas, "|") != `weather|{"city":"Ankara"}` {
+		t.Errorf("deltas = %v", deltas)
+	}
+}

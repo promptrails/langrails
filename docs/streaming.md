@@ -48,6 +48,7 @@ for event := range events {
 | `EventReasoning` | Reasoning/thinking text chunk (emitted before content) | `Reasoning` |
 | `EventContent` | Text content chunk | `Content` |
 | `EventCitation` | A source/citation was emitted | `Citation` |
+| `EventToolCallDelta` | A fragment of a tool call while it is being written | `ToolCallDelta` (Index, ID, Name, Arguments) |
 | `EventToolCall` | Tool/function call | `ToolCall` (ID, Name, Arguments) |
 | `EventDone` | Stream completed | — |
 | `EventError` | Error occurred | `Error` |
@@ -147,6 +148,37 @@ for event := range events {
     }
 }
 ```
+
+### Watching tool calls as they are written
+
+A tool call's arguments can take a while to generate — a file an agent is
+about to write, a long query. `EventToolCallDelta` events carry each piece
+as it arrives, so a UI can show the call before it is complete. Fragments
+with the same `Index` belong to the same call; `ID` and `Name` come with
+the first one, and the `Arguments` pieces join into the complete JSON:
+
+```go
+args := map[int]*strings.Builder{}
+for event := range events {
+    switch event.Type {
+    case langrails.EventToolCallDelta:
+        d := event.ToolCallDelta
+        if d.Name != "" {
+            fmt.Printf("\n→ %s ", d.Name)
+            args[d.Index] = &strings.Builder{}
+        }
+        args[d.Index].WriteString(d.Arguments)
+        fmt.Print(d.Arguments)
+    case langrails.EventToolCall:
+        // the finished call, as before
+    }
+}
+```
+
+The complete `EventToolCall` still follows, so code that only needs
+finished calls can ignore the deltas. OpenAI-compatible providers,
+Anthropic and Bedrock stream deltas; Gemini sends each call whole, so it
+emits only the complete event.
 
 ## Provider Notes
 

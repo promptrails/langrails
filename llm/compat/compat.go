@@ -229,6 +229,15 @@ func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<-
 				pendingToolCalls[tc.Index].Metadata = tc.Metadata
 			}
 			pendingToolCalls[tc.Index].Arguments += tc.Function.Arguments
+			ch <- langrails.StreamEvent{
+				Type: langrails.EventToolCallDelta,
+				ToolCallDelta: &langrails.ToolCallDelta{
+					Index:     tc.Index,
+					ID:        tc.ID,
+					Name:      tc.Function.Name,
+					Arguments: tc.Function.Arguments,
+				},
+			}
 		}
 
 		// Check finish reason

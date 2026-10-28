@@ -19,6 +19,11 @@ const (
 	// EventToolCall indicates a tool/function call event.
 	EventToolCall EventType = "tool_call"
 
+	// EventToolCallDelta indicates a fragment of a tool call while the model
+	// is still writing it. The complete call follows as an EventToolCall, so
+	// consumers that only need finished calls can ignore these.
+	EventToolCallDelta EventType = "tool_call_delta"
+
 	// EventDone indicates the stream has completed successfully.
 	EventDone EventType = "done"
 
@@ -43,11 +48,32 @@ type StreamEvent struct {
 	// ToolCall contains tool call data for EventToolCall events.
 	ToolCall *ToolCall
 
+	// ToolCallDelta contains the fragment for EventToolCallDelta events.
+	ToolCallDelta *ToolCallDelta
+
 	// Error contains error details for EventError events.
 	Error error
 
 	// Usage contains token usage data, typically sent with the final event.
 	Usage *TokenUsage
+}
+
+// ToolCallDelta is a fragment of a tool call streamed while the model
+// writes it, for showing a call (say, the file an agent is about to write)
+// before it is complete.
+type ToolCallDelta struct {
+	// Index is the call's position among the response's tool calls,
+	// starting at 0. Fragments with the same Index belong to the same call.
+	Index int
+
+	// ID and Name are set on a call's first fragment (and, for some
+	// providers, repeated on later ones).
+	ID   string
+	Name string
+
+	// Arguments is the next piece of the call's JSON arguments. Joined in
+	// order, the pieces of one call form its complete arguments.
+	Arguments string
 }
 
 // StreamAccumulator assembles a CompletionResponse from stream events, for

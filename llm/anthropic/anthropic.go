@@ -169,6 +169,14 @@ func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<-
 					ID:   se.ContentBlock.ID,
 					Name: se.ContentBlock.Name,
 				})
+				ch <- langrails.StreamEvent{
+					Type: langrails.EventToolCallDelta,
+					ToolCallDelta: &langrails.ToolCallDelta{
+						Index: currentToolIndex,
+						ID:    se.ContentBlock.ID,
+						Name:  se.ContentBlock.Name,
+					},
+				}
 			}
 
 		case "content_block_delta":
@@ -193,6 +201,15 @@ func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<-
 			case "input_json_delta":
 				if currentToolIndex >= 0 && currentToolIndex < len(pendingToolCalls) {
 					pendingToolCalls[currentToolIndex].Arguments += se.Delta.PartialJSON
+					if se.Delta.PartialJSON != "" {
+						ch <- langrails.StreamEvent{
+							Type: langrails.EventToolCallDelta,
+							ToolCallDelta: &langrails.ToolCallDelta{
+								Index:     currentToolIndex,
+								Arguments: se.Delta.PartialJSON,
+							},
+						}
+					}
 				}
 			}
 

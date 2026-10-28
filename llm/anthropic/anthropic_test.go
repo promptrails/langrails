@@ -253,6 +253,48 @@ func TestProvider_Stream(t *testing.T) {
 	}
 }
 
+func TestProvider_Stream_ToolCallDeltas(t *testing.T) {
+	server := newMockServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		events := []string{
+			`{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"tu_1","name":"write_file"}}`,
+			`{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"path\":"}}`,
+			`{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"\"a.txt\"}"}}`,
+			`{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"tu_2","name":"ls"}}`,
+			`{"type":"message_stop"}`,
+		}
+		for _, e := range events {
+			_, _ = w.Write([]byte("data: " + e + "\n\n"))
+		}
+	})
+	defer server.Close()
+
+	ch, err := New("key", WithBaseURL(server.URL)).Stream(context.Background(), &langrails.CompletionRequest{
+		Model:    "claude",
+		Messages: []langrails.Message{{Role: "user", Content: "Hi"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var deltas []langrails.ToolCallDelta
+	var calls []langrails.ToolCall
+	for ev := range ch {
+		switch ev.Type {
+		case langrails.EventToolCallDelta:
+			deltas = append(deltas, *ev.ToolCallDelta)
+		case langrails.EventToolCall:
+			calls = append(calls, *ev.ToolCall)
+		}
+	}
+	if len(deltas) != 4 || deltas[0].Name != "write_file" || deltas[0].Index != 0 ||
+		deltas[1].Arguments+deltas[2].Arguments != `{"path":"a.txt"}` || deltas[3].Index != 1 || deltas[3].ID != "tu_2" {
+		t.Errorf("deltas = %+v", deltas)
+	}
+	if len(calls) != 2 || calls[0].Arguments != `{"path":"a.txt"}` {
+		t.Errorf("calls = %+v", calls)
+	}
+}
+
 func TestProvider_ConvertMessages_ToolResults(t *testing.T) {
 	req := &langrails.CompletionRequest{
 		Messages: []langrails.Message{

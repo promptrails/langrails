@@ -262,6 +262,8 @@ func (a *Agent) streamCall(iteration int, emit func(Event), streamed *bool) Call
 			case langrails.EventReasoning:
 				*streamed = true
 				emit(Event{Type: EventReasoning, Iteration: iteration, Reasoning: ev.Reasoning})
+			case langrails.EventToolCallDelta:
+				emit(Event{Type: EventToolCallDelta, Iteration: iteration, ToolCallDelta: ev.ToolCallDelta})
 			}
 		}
 		if err := acc.Err(); err != nil {
