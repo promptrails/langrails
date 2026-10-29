@@ -298,7 +298,7 @@ func (c *Client) initialize(ctx context.Context) error {
 		"capabilities":    capabilities,
 		"clientInfo": map[string]interface{}{
 			"name":    "langrails",
-			"version": "1.0.0",
+			"version": "1.1.0",
 		},
 	})
 	if err != nil {

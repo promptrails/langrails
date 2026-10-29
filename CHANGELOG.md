@@ -1,5 +1,71 @@
 # Changelog
 
+## [v1.1.0] - 2026-10-30
+
+Everything here is additive; nothing in the v1 API changed. Two fixes
+change behavior and are called out under "Fixed".
+
+### Added
+
+- decide: decision models behind one `Decider` interface — Predicate,
+  Choice and Score questions answered with per-option probabilities and
+  confidence. `decide/openai` speaks OpenAI's Decisions API (GPT Luna),
+  `decide/systemone` TypeSafe's System One API (Jev) and compatible
+  servers, and `decide.FromProvider` stands in with any chat model
+- decide: `Route` is a `Provider` that sends each request to the target
+  (provider and model) its answer picks, and `GraphRouter` routes a graph
+  edge; both take a minimum confidence and a fallback
+- graph: `AddConditionalEdgeCtx` for routers that take the run's context
+  and can fail
+- graph: `AddNodeWithOptions` with `WithNodeTimeout` (`ErrNodeTimeout`),
+  `WithNodeRetry` and `WithErrorHandler`, which can recover the state and
+  reroute after the last retry; fan-out branches included
+- graph: `Drain` / `WithDrain` stop a run between steps after saving its
+  checkpoint (`RunResult.Drained`), for graceful shutdown
+- graph: `ResumeValue` reads the resume value without consuming it, so one
+  value can answer several questions in a node
+- agent: `Edit(args)` decisions let a reviewer change a tool call's
+  arguments; `WithToolSchemas` checks edits against the tool's schema
+  (`ErrInvalidEdit`) and `ValidateArguments` exposes the check
+- agent: `AwaitApproval` pauses a checkpointed graph with a typed
+  `ApprovalRequest` instead of blocking, with decisions accumulated in
+  `Approvals`
+- agent: `Abort(err)` ends a run from a tool; graph interrupts raised in
+  tools end it the same way so the graph can pause
+- mcp: tool annotations (`Tools`, `ToolNames`, `DestructiveTools`)
+- mcp: OAuth 2.1 in `mcp/oauth` — metadata discovery, dynamic client
+  registration, authorization code with PKCE (`Loopback` redirect helper),
+  resource indicators, refresh and client credentials — plugged in with
+  `WithTokenSource`, which retries once after a 401
+- mcp: elicitation (`WithElicitation`), with `AwaitElicitation` to pause a
+  graph until the user answers
+- streaming: `EventToolCallDelta` / `ToolCallDelta` carry tool-call
+  arguments as they are generated (OpenAI-compatible, Anthropic, Bedrock,
+  OpenAI Responses); agents forward them. Code that treats unknown event
+  types as errors should ignore the new type
+- openai: `WithResponsesAPI` sends requests to the Responses API, with
+  reasoning summaries, encrypted reasoning carried across tool calls, and
+  the hosted `web_search` tool. Chat Completions stays the default
+- compat: `StrictSchema` exposes the strict structured-output rewrite
+
+### Fixed
+
+- agent: an error from a `HumanInLoop` approver now ends the run, as its
+  documentation said; it used to reach the model as the tool result.
+  `ToolRetry` no longer retries such errors
+- mcp: streamable-HTTP servers that answer with an SSE stream now work;
+  the client sends `Accept: application/json, text/event-stream` and
+  answers server requests made during a call
+
+## [v1.0.2] - 2026-10-20
+
+Patch release. No API changes.
+
+### Changed
+
+- Go toolchain 1.27.3, for the GO-2026 standard library CVEs
+- ci: golangci-lint pinned to v2.14.0
+
 ## [v1.0.1] - 2026-10-06
 
 ### Added
