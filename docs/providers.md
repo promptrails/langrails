@@ -88,8 +88,8 @@ LLM_MODEL=ollama:llama3:8b     ./app
 | Tool choice | Yes | Yes | Yes | auto/required/tool (no none) | Yes |
 | Structured output | Yes (JSON schema) | Yes (tool-based) | Yes (responseSchema) | Yes (tool-based) | Yes (JSON schema) |
 | JSON mode | Yes | No | Yes | No | Yes |
-| Reasoning | effort | effort/budget | effort/budget | effort/budget | effort (varies) |
-| Web search | Yes (web_search) | Yes (web_search) | Yes (googleSearch) | No | provider-specific |
+| Reasoning | effort (summaries with the Responses API) | effort/budget | effort/budget | effort/budget | effort (varies) |
+| Web search | Yes (`web_search_options`; `web_search` tool with the Responses API) | Yes (web_search) | Yes (googleSearch) | No | provider-specific |
 | Citations | Yes | Yes | Yes | No | OpenRouter |
 | Prompt caching | implicit | cache_control | implicit | cachePoint | implicit (varies) |
 | Vision | Yes | Yes | Yes | Yes (base64) | Varies |
@@ -117,6 +117,35 @@ provider := openai.New("sk-...",
 **Models**: gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-3.5-turbo, o1, o1-mini
 
 **Azure OpenAI**: Use `WithBaseURL` to point to your Azure endpoint.
+
+### Responses API
+
+By default the provider uses Chat Completions. `WithResponsesAPI()` switches
+it to the Responses API (`/v1/responses`), which is what newer OpenAI
+features build on:
+
+```go
+provider := openai.New("sk-...", openai.WithResponsesAPI())
+```
+
+- **Reasoning summaries** — with a `ReasoningEffort`, the model's reasoning
+  summary comes back in `resp.Thinking` (and as `EventReasoning` when
+  streaming); Chat Completions returns none.
+- **Reasoning across tool calls** — the response's encrypted reasoning is
+  carried in the first tool call's `Metadata` and sent back with the tool
+  results, so a reasoning model keeps its chain of thought through an agent
+  loop. Nothing is stored on OpenAI's side (`store: false`).
+- **Web search** — `langrails.WebSearch(...)` adds the hosted `web_search`
+  tool on any model that supports it (with allowed domains and a country);
+  citations come back as usual.
+- **Same request and response types** — messages, tools, tool choice,
+  structured output, images and documents (inline or by URL) map across;
+  streaming includes tool-call deltas.
+
+Not carried by the Responses API: `Stop`, `Seed`, `TopK`,
+`FrequencyPenalty`, `PresencePenalty` and audio input. Put
+`WithResponsesAPI()` after `WithBaseURL`, or give `WithBaseURL` a URL ending
+in `/responses`, which selects the Responses API by itself.
 
 ## Anthropic
 

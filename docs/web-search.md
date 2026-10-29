@@ -38,6 +38,7 @@ return results for; `ServerTools` run **inside the provider**.
 | Provider | How it's enabled | Citations source |
 |----------|------------------|------------------|
 | OpenAI / compat | `web_search_options` (search-capable models) | inline `url_citation` annotations |
+| OpenAI (Responses API) | `web_search` tool (`AllowedDomains`, `UserLocation` as country) | `url_citation` annotations |
 | Anthropic | `web_search_20250305` server tool (`max_uses`) | text-block `citations` |
 | Gemini | `googleSearch` grounding tool | `groundingMetadata.groundingChunks` |
 | OpenRouter | `:online` model suffix / web plugin | top-level `citations` |

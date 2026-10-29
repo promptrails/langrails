@@ -572,6 +572,13 @@ func convertTools(tools []langrails.ToolDefinition) []tool {
 	return result
 }
 
+// StrictSchema rewrites a JSON schema for OpenAI's strict structured-output
+// mode, as the chat-completions request does (see enforceStrictSchema), for
+// other OpenAI request formats that need the same.
+func StrictSchema(schema []byte) json.RawMessage {
+	return enforceStrictSchema(schema)
+}
+
 // enforceStrictSchema rewrites a JSON schema to satisfy OpenAI's strict
 // mode, which applies to every object in the schema, not only the root:
 // each object gets additionalProperties: false and must list all of its

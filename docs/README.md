@@ -20,7 +20,7 @@ resp, _ := provider.Complete(ctx, &langrails.CompletionRequest{
 
 | Feature | Description |
 |---------|-------------|
-| **24 Providers** | OpenAI, Anthropic, Gemini, DeepSeek, Groq, Fireworks, xAI, OpenRouter, Together, Mistral, Cohere, Ollama, Chutes AI, Z.AI, Moonshot (Kimi), Novita AI, DeepInfra, Friendli AI, Cerebras, SambaNova, Hyperbolic, Alibaba DashScope (Qwen), Hugging Face Router, Amazon Bedrock |
+| **24 Providers** | OpenAI (Chat Completions or the Responses API), Anthropic, Gemini, DeepSeek, Groq, Fireworks, xAI, OpenRouter, Together, Mistral, Cohere, Ollama, Chutes AI, Z.AI, Moonshot (Kimi), Novita AI, DeepInfra, Friendli AI, Cerebras, SambaNova, Hyperbolic, Alibaba DashScope (Qwen), Hugging Face Router, Amazon Bedrock |
 | **Streaming** | Channel-based, idiomatic Go; text, reasoning and tool-call arguments as they are generated |
 | **Tool Calling** | Typed tools from Go functions, automatic tool execution loop, `ToolChoice` control |
 | **Reasoning** | Provider-agnostic `ReasoningEffort` (minimal/low/medium/high), reasoning text + token accounting |

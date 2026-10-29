@@ -26,7 +26,8 @@ itself, and takes precedence over the budget an effort level implies.
 
 | Provider | Mapping |
 |----------|---------|
-| OpenAI / compat | `reasoning.effort` = the effort string directly |
+| OpenAI / compat | `reasoning_effort` / `reasoning.effort` = the effort string directly |
+| OpenAI (Responses API) | `reasoning.effort` plus `summary: auto`; the summary is returned as `Thinking`, and encrypted reasoning is carried across tool calls |
 | Anthropic | extended thinking with a token budget derived from effort (minimal=1024, low=4096, medium=8192, high=16384); `ReasoningBudget` overrides |
 | Gemini 3 | `generationConfig.thinkingConfig.thinkingLevel` = the effort string directly |
 | Gemini 2.5 | `generationConfig.thinkingConfig` (`includeThoughts` + budget derived from effort) |
