@@ -154,7 +154,7 @@ func (t *httpTransport) post(ctx context.Context, body []byte) (*http.Response, 
 	if !ok {
 		return resp, nil
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	inv.InvalidateToken()
 	return t.postOnce(ctx, body)
 }
