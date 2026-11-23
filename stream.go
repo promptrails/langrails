@@ -56,6 +56,15 @@ type StreamEvent struct {
 
 	// Usage contains token usage data, typically sent with the final event.
 	Usage *TokenUsage
+
+	// FinishReason is the provider's own terminal reason, set on EventDone when
+	// the provider reports one (for example "stop", "length"/"max_tokens",
+	// "tool_calls", "content_filter", or a provider-specific value such as
+	// Gemini's "MAX_TOKENS" / "MALFORMED_FUNCTION_CALL"). Empty when the provider
+	// ended the stream without stating a reason. It lets a consumer distinguish a
+	// clean completion from a truncated or filtered one, which the tool-call
+	// presence heuristic cannot.
+	FinishReason string
 }
 
 // ToolCallDelta is a fragment of a tool call streamed while the model
@@ -109,19 +118,24 @@ func (a *StreamAccumulator) Add(ev StreamEvent) {
 	if ev.Usage != nil {
 		a.resp.Usage = *ev.Usage
 	}
+	if ev.FinishReason != "" {
+		a.resp.FinishReason = ev.FinishReason
+	}
 }
 
-// Response returns the response assembled so far. FinishReason is
-// "tool_calls" when the model called tools and "stop" otherwise, since
-// streams do not carry the provider's own finish reason.
+// Response returns the response assembled so far. FinishReason is the reason
+// carried on EventDone when the provider reported one; otherwise it falls back
+// to "tool_calls" when the model called tools and "stop" when it did not.
 func (a *StreamAccumulator) Response() *CompletionResponse {
 	r := a.resp
 	r.Content = a.content.String()
 	r.Thinking = a.reasoning.String()
-	if len(r.ToolCalls) > 0 {
-		r.FinishReason = "tool_calls"
-	} else {
-		r.FinishReason = "stop"
+	if r.FinishReason == "" {
+		if len(r.ToolCalls) > 0 {
+			r.FinishReason = "tool_calls"
+		} else {
+			r.FinishReason = "stop"
+		}
 	}
 	return &r
 }

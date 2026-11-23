@@ -143,6 +143,19 @@ func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<-
 	reader := sse.NewReader(body)
 	var pendingToolCalls []langrails.ToolCall
 	currentToolIndex := -1
+	// Anthropic reports input (and cache) tokens only in message_start and the
+	// running output tokens in message_delta, so accumulate across both and emit
+	// the merged usage once on EventDone. Reading usage from message_delta alone
+	// drops every prompt and cache token.
+	var streamUsage langrails.TokenUsage
+	var finishReason string
+	emitDone := func() {
+		for i := range pendingToolCalls {
+			ch <- langrails.StreamEvent{Type: langrails.EventToolCall, ToolCall: &pendingToolCalls[i]}
+		}
+		usage := streamUsage
+		ch <- langrails.StreamEvent{Type: langrails.EventDone, Usage: &usage, FinishReason: finishReason}
+	}
 
 	for {
 		select {
@@ -213,27 +226,36 @@ func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<-
 				}
 			}
 
+		case "message_start":
+			if se.Message != nil && se.Message.Usage != nil {
+				streamUsage.PromptTokens = se.Message.Usage.InputTokens
+				streamUsage.CachedTokens = se.Message.Usage.CacheReadInputTokens
+				streamUsage.CacheCreationTokens = se.Message.Usage.CacheCreationInputTokens
+			}
+
 		case "message_delta":
 			if se.Usage != nil {
-				ch <- langrails.StreamEvent{
-					Usage: &langrails.TokenUsage{
-						PromptTokens:        se.Usage.InputTokens,
-						CompletionTokens:    se.Usage.OutputTokens,
-						TotalTokens:         se.Usage.InputTokens + se.Usage.OutputTokens,
-						CachedTokens:        se.Usage.CacheReadInputTokens,
-						CacheCreationTokens: se.Usage.CacheCreationInputTokens,
-					},
+				// message_delta reports the running output count (and, when the
+				// provider repeats them, input/cache). Keep the prompt/cache totals
+				// from message_start unless this delta restates them.
+				streamUsage.CompletionTokens = se.Usage.OutputTokens
+				if se.Usage.InputTokens > 0 {
+					streamUsage.PromptTokens = se.Usage.InputTokens
 				}
+				if se.Usage.CacheReadInputTokens > 0 {
+					streamUsage.CachedTokens = se.Usage.CacheReadInputTokens
+				}
+				if se.Usage.CacheCreationInputTokens > 0 {
+					streamUsage.CacheCreationTokens = se.Usage.CacheCreationInputTokens
+				}
+			}
+			if se.Delta != nil && se.Delta.StopReason != "" {
+				finishReason = se.Delta.StopReason
 			}
 
 		case "message_stop":
-			for i := range pendingToolCalls {
-				ch <- langrails.StreamEvent{
-					Type:     langrails.EventToolCall,
-					ToolCall: &pendingToolCalls[i],
-				}
-			}
-			ch <- langrails.StreamEvent{Type: langrails.EventDone}
+			streamUsage.TotalTokens = streamUsage.PromptTokens + streamUsage.CompletionTokens
+			emitDone()
 			return
 		}
 	}
@@ -246,7 +268,8 @@ func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<-
 		return
 	}
 
-	ch <- langrails.StreamEvent{Type: langrails.EventDone}
+	streamUsage.TotalTokens = streamUsage.PromptTokens + streamUsage.CompletionTokens
+	emitDone()
 }
 
 func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream bool) ([]byte, error) {

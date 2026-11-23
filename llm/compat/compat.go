@@ -173,6 +173,7 @@ func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<-
 	reader := sse.NewReader(body)
 	var pendingToolCalls []langrails.ToolCall
 	var latestUsage *langrails.TokenUsage
+	var latestFinish string
 
 	sendDone := func() {
 		for i := range pendingToolCalls {
@@ -181,7 +182,7 @@ func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<-
 				ToolCall: &pendingToolCalls[i],
 			}
 		}
-		ch <- langrails.StreamEvent{Type: langrails.EventDone, Usage: latestUsage}
+		ch <- langrails.StreamEvent{Type: langrails.EventDone, Usage: latestUsage, FinishReason: latestFinish}
 	}
 
 	for {
@@ -221,6 +222,10 @@ func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<-
 
 		if len(chunk.Choices) == 0 {
 			continue
+		}
+
+		if fr := chunk.Choices[0].FinishReason; fr != "" {
+			latestFinish = fr
 		}
 
 		delta := chunk.Choices[0].Delta

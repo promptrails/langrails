@@ -1,5 +1,28 @@
 # Changelog
 
+## [v1.1.3] - 2026-11-23
+
+### Fixed
+
+- anthropic: streaming now accumulates usage across `message_start` (input and
+  cache tokens) and `message_delta` (output tokens) and emits the merged total
+  once on `EventDone`. Previously usage was read only from `message_delta`, where
+  Anthropic does not repeat the input/cache counts, so streamed Anthropic calls
+  reported output tokens only and undercounted cost and budget.
+- gemini: streaming usage now includes `CachedTokens` and is emitted even when
+  the finish reason is not `STOP` (for example `MAX_TOKENS`), so a truncated
+  streamed round is still billed and the cache discount is not lost.
+
+### Added
+
+- streaming: `StreamEvent.FinishReason` carries the provider's own terminal
+  reason on `EventDone` (`stop`, `length`/`max_tokens`, `tool_calls`,
+  `content_filter`, or a provider-specific value such as Gemini's `MAX_TOKENS` /
+  `MALFORMED_FUNCTION_CALL`). `StreamAccumulator.Response` uses it when present,
+  falling back to the tool-call-presence heuristic otherwise. This lets a
+  consumer distinguish a clean completion from a truncated or filtered one, which
+  the heuristic alone cannot. The anthropic, gemini and compat providers set it.
+
 ## [v1.1.2] - 2026-11-23
 
 ### Fixed

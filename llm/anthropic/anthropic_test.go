@@ -253,6 +253,57 @@ func TestProvider_Stream(t *testing.T) {
 	}
 }
 
+// Real Anthropic streams report input and cache tokens ONLY in message_start and
+// the running output count in message_delta. The EventDone usage must merge both,
+// and carry the provider's stop_reason. Guards the billing undercount where input
+// and cache tokens were read from message_delta (where they are absent) and lost.
+func TestProvider_Stream_UsageFromMessageStart(t *testing.T) {
+	server := newMockServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher := w.(http.Flusher)
+		events := []string{
+			`{"type":"message_start","message":{"usage":{"input_tokens":100,"output_tokens":1,"cache_read_input_tokens":40,"cache_creation_input_tokens":10}}}`,
+			`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hi"}}`,
+			`{"type":"message_delta","delta":{"stop_reason":"max_tokens"},"usage":{"output_tokens":7}}`,
+			`{"type":"message_stop"}`,
+		}
+		for _, e := range events {
+			_, _ = w.Write([]byte("data: " + e + "\n\n"))
+			flusher.Flush()
+		}
+	})
+	defer server.Close()
+
+	provider := New("key", WithBaseURL(server.URL))
+	ch, err := provider.Stream(context.Background(), &langrails.CompletionRequest{
+		Model:    "claude-sonnet-4-20250514",
+		Messages: []langrails.Message{{Role: "user", Content: "Hi"}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	var done *langrails.StreamEvent
+	for event := range ch {
+		if event.Type == langrails.EventDone {
+			e := event
+			done = &e
+		}
+		if event.Type == langrails.EventError {
+			t.Fatalf("unexpected error: %v", event.Error)
+		}
+	}
+	if done == nil || done.Usage == nil {
+		t.Fatal("expected a done event carrying usage")
+	}
+	if done.Usage.PromptTokens != 100 || done.Usage.CompletionTokens != 7 ||
+		done.Usage.CachedTokens != 40 || done.Usage.CacheCreationTokens != 10 || done.Usage.TotalTokens != 107 {
+		t.Fatalf("merged usage wrong: %+v", done.Usage)
+	}
+	if done.FinishReason != "max_tokens" {
+		t.Errorf("FinishReason = %q, want max_tokens", done.FinishReason)
+	}
+}
+
 func TestProvider_Stream_ToolCallDeltas(t *testing.T) {
 	server := newMockServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")

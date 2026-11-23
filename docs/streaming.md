@@ -56,6 +56,16 @@ for event := range events {
 Any event may also carry `Usage` (token counts, typically with the final event).
 
 The `Usage` field may be present on any event type (typically the last content or done event).
+For Anthropic, input and cache tokens arrive in `message_start` and output tokens
+in `message_delta`; the adapter merges them and reports the complete usage on
+`EventDone`. For Gemini, usage (including cached tokens) is reported on `EventDone`
+even when the run ends with a non-`STOP` finish reason such as `MAX_TOKENS`.
+
+`EventDone` also carries `FinishReason` when the provider states one — `stop`,
+`length`/`max_tokens`, `tool_calls`, `content_filter`, or a provider-specific
+value such as Gemini's `MAX_TOKENS` / `MALFORMED_FUNCTION_CALL`. Use it to tell a
+clean completion from a truncated or filtered one; `StreamAccumulator.Response`
+falls back to the tool-call-presence heuristic when it is empty.
 
 OpenAI-compatible providers request usage with
 `stream_options.include_usage`. The adapter normalizes cumulative or

@@ -214,6 +214,12 @@ func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<-
 
 	reader := sse.NewReader(body)
 
+	// Gemini reports usage on its chunks (including the final non-STOP one) and
+	// the finish reason per candidate. Accumulate both and emit once on EventDone
+	// so a MAX_TOKENS round is still billed and cached tokens are not dropped.
+	var streamUsage *langrails.TokenUsage
+	var finishReason string
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -273,20 +279,17 @@ func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<-
 			}
 		}
 
-		if candidate.FinishReason != "" && candidate.FinishReason != "STOP" {
-			continue
-		}
-		if candidate.FinishReason == "STOP" {
-			if resp.UsageMetadata != nil {
-				ch <- langrails.StreamEvent{
-					Usage: &langrails.TokenUsage{
-						PromptTokens:     resp.UsageMetadata.PromptTokenCount,
-						CompletionTokens: resp.UsageMetadata.CandidatesTokenCount,
-						TotalTokens:      resp.UsageMetadata.TotalTokenCount,
-						ReasoningTokens:  resp.UsageMetadata.ThoughtsTokenCount,
-					},
-				}
+		if resp.UsageMetadata != nil {
+			streamUsage = &langrails.TokenUsage{
+				PromptTokens:     resp.UsageMetadata.PromptTokenCount,
+				CompletionTokens: resp.UsageMetadata.CandidatesTokenCount,
+				TotalTokens:      resp.UsageMetadata.TotalTokenCount,
+				ReasoningTokens:  resp.UsageMetadata.ThoughtsTokenCount,
+				CachedTokens:     resp.UsageMetadata.CachedContentTokenCount,
 			}
+		}
+		if candidate.FinishReason != "" {
+			finishReason = candidate.FinishReason
 		}
 	}
 
@@ -298,7 +301,7 @@ func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<-
 		return
 	}
 
-	ch <- langrails.StreamEvent{Type: langrails.EventDone}
+	ch <- langrails.StreamEvent{Type: langrails.EventDone, Usage: streamUsage, FinishReason: finishReason}
 }
 
 // mediaSupport: Gemini takes audio and documents as inline data, or by
