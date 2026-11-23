@@ -57,6 +57,16 @@ Any event may also carry `Usage` (token counts, typically with the final event).
 
 The `Usage` field may be present on any event type (typically the last content or done event).
 
+OpenAI-compatible providers request usage with
+`stream_options.include_usage`. The adapter normalizes cumulative or
+choices-less usage reports into exactly one `Usage` value on `EventDone`.
+Older partial-compatible endpoints that reject `stream_options` can omit the
+field while retaining any unsolicited usage they do return:
+
+```go
+provider := openai.New(apiKey, compat.WithoutStreamUsage())
+```
+
 ## Collecting Full Response
 
 `langrails.CollectStream` reads a stream to the end and returns the assembled
