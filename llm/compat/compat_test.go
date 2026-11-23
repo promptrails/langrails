@@ -169,14 +169,26 @@ func TestProvider_Complete_APIError(t *testing.T) {
 }
 
 func TestProvider_Stream(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req request
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("failed to decode request: %v", err)
+		}
+		if !req.Stream {
+			t.Error("expected stream=true")
+		}
+		if req.StreamOptions == nil || !req.StreamOptions.IncludeUsage {
+			t.Fatalf("expected stream_options.include_usage=true, got %+v", req.StreamOptions)
+		}
+
 		w.Header().Set("Content-Type", "text/event-stream")
 		flusher := w.(http.Flusher)
 
 		chunks := []string{
 			`{"choices":[{"delta":{"content":"Hello"},"finish_reason":""}]}`,
 			`{"choices":[{"delta":{"content":" World"},"finish_reason":""}]}`,
-			`{"choices":[{"delta":{},"finish_reason":"stop"}]}`,
+			`{"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":1,"total_tokens":11}}`,
+			`{"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12,"prompt_tokens_details":{"cached_tokens":4}}}`,
 		}
 
 		for _, chunk := range chunks {
@@ -200,7 +212,17 @@ func TestProvider_Stream(t *testing.T) {
 
 	var content string
 	var gotDone bool
+	var gotUsage *langrails.TokenUsage
+	usageEvents := 0
 	for event := range ch {
+		if event.Usage != nil {
+			usageEvents++
+			usage := *event.Usage
+			gotUsage = &usage
+			if event.Type != langrails.EventDone {
+				t.Errorf("usage event type = %q, want done", event.Type)
+			}
+		}
 		switch event.Type {
 		case langrails.EventContent:
 			content += event.Content
@@ -216,6 +238,51 @@ func TestProvider_Stream(t *testing.T) {
 	}
 	if !gotDone {
 		t.Error("expected done event")
+	}
+	if gotUsage == nil {
+		t.Fatal("expected usage event from choices-less terminal chunk")
+	}
+	if gotUsage.PromptTokens != 10 || gotUsage.CompletionTokens != 2 || gotUsage.TotalTokens != 12 || gotUsage.CachedTokens != 4 {
+		t.Errorf("usage = %+v, want prompt=10 completion=2 total=12 cached=4", *gotUsage)
+	}
+	if usageEvents != 1 {
+		t.Errorf("usage events = %d, want exactly one", usageEvents)
+	}
+}
+
+func TestProvider_Stream_CanOmitUsageOptionsForPartialCompatEndpoints(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var raw map[string]json.RawMessage
+		if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
+			t.Fatalf("failed to decode request: %v", err)
+		}
+		if _, exists := raw["stream_options"]; exists {
+			t.Fatal("stream_options must be omitted when stream usage is disabled")
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: {\"choices\":[],\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":1,\"total_tokens\":4}}\n\n"))
+		_, _ = w.Write([]byte("data: [DONE]\n\n"))
+	}))
+	defer server.Close()
+
+	provider := New(Config{
+		Name:    "partial-compat",
+		BaseURL: server.URL,
+		APIKey:  "key",
+	})
+	WithoutStreamUsage()(&provider.config)
+	ch, err := provider.Stream(context.Background(), &langrails.CompletionRequest{Model: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var usage *langrails.TokenUsage
+	for event := range ch {
+		if event.Usage != nil {
+			usage = event.Usage
+		}
+	}
+	if usage == nil || usage.TotalTokens != 4 {
+		t.Fatalf("usage = %+v, want unprompted total=4", usage)
 	}
 }
 
@@ -345,6 +412,7 @@ func TestProvider_Stream_ToolCalls(t *testing.T) {
 			`{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"city\":"}}]}}]}`,
 			`{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"Istanbul\"}"}}]}}]}`,
 			`{"choices":[{"delta":{},"finish_reason":"tool_calls"}]}`,
+			`{"choices":[],"usage":{"prompt_tokens":20,"completion_tokens":5,"total_tokens":25}}`,
 		}
 		for _, c := range chunks {
 			_, _ = w.Write([]byte("data: " + c + "\n\n"))
@@ -366,6 +434,8 @@ func TestProvider_Stream_ToolCalls(t *testing.T) {
 
 	var toolCalls []langrails.ToolCall
 	var deltas []langrails.ToolCallDelta
+	var usage *langrails.TokenUsage
+	var doneAfterToolCall bool
 	for event := range ch {
 		if event.Type == langrails.EventToolCall && event.ToolCall != nil {
 			toolCalls = append(toolCalls, *event.ToolCall)
@@ -375,6 +445,10 @@ func TestProvider_Stream_ToolCalls(t *testing.T) {
 				t.Error("delta after the complete tool call")
 			}
 			deltas = append(deltas, *event.ToolCallDelta)
+		}
+		if event.Type == langrails.EventDone {
+			doneAfterToolCall = len(toolCalls) == 1
+			usage = event.Usage
 		}
 	}
 	if len(toolCalls) != 1 {
@@ -389,6 +463,12 @@ func TestProvider_Stream_ToolCalls(t *testing.T) {
 	}
 	if toolCalls[0].Arguments != `{"city":"Istanbul"}` {
 		t.Errorf("unexpected args: %s", toolCalls[0].Arguments)
+	}
+	if !doneAfterToolCall {
+		t.Error("done event arrived before the completed tool call")
+	}
+	if usage == nil || usage.TotalTokens != 25 {
+		t.Errorf("done usage = %+v, want total=25", usage)
 	}
 }
 
@@ -602,6 +682,7 @@ func TestProvider_Stream_WithoutDONE(t *testing.T) {
 		chunks := []string{
 			`{"choices":[{"delta":{"content":"hello"},"finish_reason":""}]}`,
 			`{"choices":[{"delta":{},"finish_reason":"stop"}]}`,
+			`{"choices":[],"usage":{"prompt_tokens":7,"completion_tokens":1,"total_tokens":8}}`,
 		}
 		for _, c := range chunks {
 			_, _ = w.Write([]byte("data: " + c + "\n\n"))
@@ -622,7 +703,13 @@ func TestProvider_Stream_WithoutDONE(t *testing.T) {
 
 	var content string
 	var gotDone bool
+	var usage *langrails.TokenUsage
+	usageEvents := 0
 	for ev := range ch {
+		if ev.Usage != nil {
+			usageEvents++
+			usage = ev.Usage
+		}
 		switch ev.Type {
 		case langrails.EventContent:
 			content += ev.Content
@@ -635,6 +722,9 @@ func TestProvider_Stream_WithoutDONE(t *testing.T) {
 	}
 	if !gotDone {
 		t.Error("expected EventDone even without [DONE] marker")
+	}
+	if usage == nil || usage.TotalTokens != 8 || usageEvents != 1 {
+		t.Errorf("usage = %+v, events = %d; want total=8 exactly once", usage, usageEvents)
 	}
 }
 

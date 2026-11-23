@@ -38,6 +38,12 @@ type Config struct {
 	// ReasoningStyleObject, which is what every provider here used before the
 	// field existed.
 	ReasoningStyle ReasoningStyle
+
+	// DisableStreamUsage omits OpenAI's stream_options.include_usage request
+	// field. It is an escape hatch for older or partial OpenAI-compatible
+	// endpoints that reject stream_options. Usage accounting is unavailable for
+	// those streams unless the endpoint includes usage without being asked.
+	DisableStreamUsage bool
 }
 
 // ReasoningStyle is the wire form a provider expects for reasoning effort.
@@ -69,6 +75,14 @@ func New(cfg Config) *Provider {
 		client = &http.Client{Timeout: 5 * 60 * 1e9} // 5 minutes
 	}
 	return &Provider{config: cfg, client: client}
+}
+
+// WithoutStreamUsage disables the stream_options.include_usage request field.
+// Pass it to an OpenAI-compatible provider constructor when an older or partial
+// endpoint rejects stream_options. The provider will still preserve usage if
+// the endpoint includes it without being asked.
+func WithoutStreamUsage() func(*Config) {
+	return func(cfg *Config) { cfg.DisableStreamUsage = true }
 }
 
 // Complete sends a non-streaming completion request.
@@ -158,6 +172,17 @@ func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<-
 
 	reader := sse.NewReader(body)
 	var pendingToolCalls []langrails.ToolCall
+	var latestUsage *langrails.TokenUsage
+
+	sendDone := func() {
+		for i := range pendingToolCalls {
+			ch <- langrails.StreamEvent{
+				Type:     langrails.EventToolCall,
+				ToolCall: &pendingToolCalls[i],
+			}
+		}
+		ch <- langrails.StreamEvent{Type: langrails.EventDone, Usage: latestUsage}
+	}
 
 	for {
 		select {
@@ -172,14 +197,7 @@ func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<-
 		}
 
 		if event.Data == "[DONE]" {
-			// Send accumulated tool calls if any
-			for i := range pendingToolCalls {
-				ch <- langrails.StreamEvent{
-					Type:     langrails.EventToolCall,
-					ToolCall: &pendingToolCalls[i],
-				}
-			}
-			ch <- langrails.StreamEvent{Type: langrails.EventDone}
+			sendDone()
 			return
 		}
 
@@ -190,6 +208,15 @@ func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<-
 				Error: fmt.Errorf("%s: failed to parse stream chunk: %w", p.config.Name, err),
 			}
 			return
+		}
+
+		// Providers may send usage on the finish chunk, in a choices-less
+		// terminal chunk, or as running totals. Keep the latest snapshot and
+		// publish it exactly once on EventDone so direct channel consumers cannot
+		// accidentally double-count multiple cumulative reports.
+		if chunk.Usage != nil {
+			u := toUsage(*chunk.Usage)
+			latestUsage = &u
 		}
 
 		if len(chunk.Choices) == 0 {
@@ -239,15 +266,6 @@ func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<-
 				},
 			}
 		}
-
-		// Check finish reason
-		if chunk.Choices[0].FinishReason == "stop" || chunk.Choices[0].FinishReason == "tool_calls" {
-			// Usage may come in the final chunk
-			if chunk.Usage != nil {
-				u := toUsage(*chunk.Usage)
-				ch <- langrails.StreamEvent{Usage: &u}
-			}
-		}
 	}
 
 	if err := reader.Err(); err != nil {
@@ -258,14 +276,8 @@ func (p *Provider) readStream(ctx context.Context, body io.ReadCloser, ch chan<-
 		return
 	}
 
-	// Stream ended without [DONE], send any pending tool calls
-	for i := range pendingToolCalls {
-		ch <- langrails.StreamEvent{
-			Type:     langrails.EventToolCall,
-			ToolCall: &pendingToolCalls[i],
-		}
-	}
-	ch <- langrails.StreamEvent{Type: langrails.EventDone}
+	// Some compatible endpoints close the connection without a [DONE] marker.
+	sendDone()
 }
 
 func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream bool) ([]byte, error) {
@@ -276,6 +288,9 @@ func (p *Provider) buildRequestBody(req *langrails.CompletionRequest, stream boo
 		Model:    req.Model,
 		Messages: convertMessages(req),
 		Stream:   stream,
+	}
+	if stream && !p.config.DisableStreamUsage {
+		oaiReq.StreamOptions = &streamOptions{IncludeUsage: true}
 	}
 
 	if req.Temperature != nil {

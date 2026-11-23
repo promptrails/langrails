@@ -15,12 +15,19 @@ type request struct {
 	Stop             []string          `json:"stop,omitempty"`
 	Seed             *int              `json:"seed,omitempty"`
 	Stream           bool              `json:"stream"`
+	StreamOptions    *streamOptions    `json:"stream_options,omitempty"`
 	Tools            []tool            `json:"tools,omitempty"`
 	ToolChoice       interface{}       `json:"tool_choice,omitempty"` // string or toolChoiceFunction
 	ResponseFormat   *responseFormat   `json:"response_format,omitempty"`
 	Reasoning        *reasoningParam   `json:"reasoning,omitempty"`
 	ReasoningEffort  string            `json:"reasoning_effort,omitempty"`
 	WebSearchOptions *webSearchOptions `json:"web_search_options,omitempty"`
+}
+
+// streamOptions controls metadata included by OpenAI-compatible streaming
+// endpoints. Usage is delivered in a final chunk whose choices array is empty.
+type streamOptions struct {
+	IncludeUsage bool `json:"include_usage"`
 }
 
 // webSearchOptions enables OpenAI-style built-in web search. The empty form

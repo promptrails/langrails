@@ -1,5 +1,15 @@
 # Changelog
 
+## [v1.1.2] - 2026-11-23
+
+### Fixed
+
+- compat: OpenAI-compatible streams request token usage and preserve the final
+  choices-less usage chunk on `EventDone`, so streamed calls have the same
+  token and cost accounting as non-streaming calls. Partial compatibility
+  endpoints that reject `stream_options` can opt out with
+  `compat.WithoutStreamUsage()`.
+
 ## [v1.1.0] - 2026-10-30
 
 Everything here is additive; nothing in the v1 API changed. Two fixes

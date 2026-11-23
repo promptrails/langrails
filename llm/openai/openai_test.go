@@ -33,6 +33,7 @@ func TestNew(t *testing.T) {
 func TestNew_WithOptions(t *testing.T) {
 	p := New("sk-test",
 		WithBaseURL("https://custom.url/v1/chat/completions"),
+		compat.WithoutStreamUsage(),
 		WithHTTPClient(&http.Client{}),
 	)
 	if p == nil {
